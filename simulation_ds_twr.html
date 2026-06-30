@@ -6,12 +6,11 @@
     <title>Simulation DS-TWR & Retard d'Antenne</title>
     
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Tailwind Configuration matching Cerema identity -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -23,12 +22,17 @@
                     },
                     colors: {
                         cerema: {
-                            blue: '#003B5C',     // Dark Blue Cerema
-                            cyan: '#00A3A6',     // Cyan Cerema
-                            orange: '#F29400',   // Orange Cerema
-                            darkbg: '#0B111A',   // Main background
-                            panel: '#141E2B',    // Card background
+                            blue: '#003B5C',     // Dark Blue
+                            cyan: '#00D8D6',     // Bright Cyan (brighter for better contrast)
+                            orange: '#FF9F43',   // Bright Orange
+                            darkbg: '#050B14',   // Deep background
+                            panel: '#0F172A',    // Card background (slate-900)
+                            border: '#1E293B'    // subtle border (slate-800)
                         }
+                    },
+                    boxShadow: {
+                        'neon-cyan': '0 0 10px rgba(0, 216, 214, 0.5), 0 0 20px rgba(0, 216, 214, 0.3)',
+                        'neon-orange': '0 0 10px rgba(255, 159, 67, 0.5), 0 0 20px rgba(255, 159, 67, 0.3)',
                     }
                 }
             }
@@ -37,21 +41,24 @@
 
     <style>
         body {
-            background-color: #0B111A;
+            background-color: #050B14;
             color: #e2e8f0;
+            background-image: radial-gradient(circle at 50% 0%, #0F172A 0%, #050B14 100%);
+            background-attachment: fixed;
         }
         
         /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #0B111A; }
-        ::-webkit-scrollbar-thumb { background: #003B5C; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #00A3A6; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00D8D6; }
 
-        /* Sliders styling */
+        /* Modern Sliders styling */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
             background: transparent;
+            height: 24px; /* Larger touch target */
         }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -59,290 +66,300 @@
             border-radius: 50%;
             cursor: pointer;
             margin-top: -6px;
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
         }
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%; height: 4px; cursor: pointer;
-            background: #1e293b; border-radius: 2px;
+            background: #1E293B; border-radius: 2px;
         }
         input[type=range]:focus { outline: none; }
         
-        .slider-cyan::-webkit-slider-thumb { background: #00A3A6; box-shadow: 0 0 10px rgba(0, 163, 166, 0.5); }
-        .slider-orange::-webkit-slider-thumb { background: #F29400; box-shadow: 0 0 10px rgba(242, 148, 0, 0.5); }
-        .slider-blue::-webkit-slider-thumb { background: #3B82F6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+        .slider-cyan::-webkit-slider-thumb { background: #00D8D6; box-shadow: 0 0 10px rgba(0, 216, 214, 0.8); }
+        .slider-orange::-webkit-slider-thumb { background: #FF9F43; box-shadow: 0 0 10px rgba(255, 159, 67, 0.8); }
+        .slider-blue::-webkit-slider-thumb { background: #3B82F6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.8); }
 
-        .glass-panel {
-            background: rgba(20, 30, 43, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        /* Crisp Canvas Rendering - Removes blur */
+        canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated; /* Fallback */
         }
-        
-        .wave-glow {
-            box-shadow: 0 0 20px rgba(0, 163, 166, 0.4);
+
+        .panel-gradient {
+            background: linear-gradient(145deg, #0F172A 0%, #0B1120 100%);
+        }
+
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #00D8D6;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #00D8D6;
+            box-shadow: 0 0 10px rgba(0, 216, 214, 0.4);
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col p-4 md:p-6 lg:p-8">
+<body class="min-h-screen flex flex-col p-4 md:p-6 lg:p-8 font-sans">
 
-    <!-- Header -->
-    <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-cerema-blue pb-4">
+    <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-cerema-border pb-4">
         <div>
-            <h1 class="text-3xl font-bold text-white flex items-center gap-3">
-                <span class="text-cerema-cyan">Protocole DS-TWR</span>
+            <h1 class="text-3xl font-bold text-white flex items-center gap-3 tracking-tight">
+                <svg class="w-8 h-8 text-cerema-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span class="bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Protocole DS-TWR</span>
             </h1>
-            <p class="text-slate-400 mt-1">Analyse du Double-Sided Two-Way Ranging et étalonnage du retard d'antenne (Antenna Delay)</p>
+            <p class="text-slate-400 mt-2 text-sm font-medium">Analyse temps réel du Double-Sided Two-Way Ranging & Calibration d'Antenne</p>
         </div>
-        <div class="mt-4 md:mt-0 flex gap-4">
-            <div class="flex items-center gap-2 text-sm font-medium">
-                <span class="w-3 h-3 rounded-full bg-cerema-cyan shadow-[0_0_8px_#00A3A6]"></span> Tag (Mobile)
+        <div class="mt-4 md:mt-0 flex gap-6 bg-cerema-panel border border-cerema-border px-4 py-2 rounded-lg shadow-lg">
+            <div class="flex items-center gap-2 text-sm font-semibold text-slate-200">
+                <span class="w-3 h-3 rounded-full bg-cerema-cyan shadow-neon-cyan"></span> Tag (Mobile)
             </div>
-            <div class="flex items-center gap-2 text-sm font-medium">
-                <span class="w-3 h-3 rounded-full bg-cerema-orange shadow-[0_0_8px_#F29400]"></span> Ancre (Fixe)
+            <div class="flex items-center gap-2 text-sm font-semibold text-slate-200">
+                <span class="w-3 h-3 rounded-full bg-cerema-orange shadow-neon-orange"></span> Ancre (Fixe)
             </div>
         </div>
     </header>
 
     <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <!-- Left Column: Controls & Virtual Calibration Bench -->
-        <div class="col-span-1 lg:col-span-5 flex flex-col gap-6">
+        <div class="col-span-1 lg:col-span-4 flex flex-col gap-6">
             
             <!-- Parameters Panel -->
-            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg">
-                <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <svg class="w-5 h-5 text-cerema-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-                    Paramètres Physiques et Matériels
+            <div class="panel-gradient rounded-xl border border-cerema-border p-5 shadow-xl">
+                <h2 class="text-base font-bold text-white mb-5 flex items-center gap-2 border-b border-cerema-border pb-2">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    Paramètres Physiques
                 </h2>
                 
-                <div class="space-y-4">
+                <div class="space-y-5">
                     <!-- Real Distance -->
-                    <div>
-                        <div class="flex justify-between mb-1">
-                            <label class="text-sm font-medium text-slate-300">Distance Réelle</label>
-                            <span id="val-distance" class="text-cerema-cyan font-mono text-sm font-bold">5.00 m</span>
+                    <div class="bg-cerema-darkbg/50 p-3 rounded-lg border border-slate-800/50">
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="text-sm font-semibold text-slate-300">Distance Réelle</label>
+                            <span id="val-distance" class="text-cerema-cyan font-mono text-base font-bold">5.00 m</span>
                         </div>
-                        <p class="text-xs text-slate-500 mb-2">Distance géométrique exacte entre le Tag et l'Ancre.</p>
                         <input type="range" id="slider-distance" class="slider-cyan" min="0.5" max="25" step="0.05" value="5.0">
                     </div>
 
-                    <!-- Tag Antenna Delay -->
-                    <div>
-                        <div class="flex justify-between mb-1">
-                            <label class="text-sm font-medium text-slate-300">Retard d'Antenne du Tag (Antenna Delay)</label>
-                            <span id="val-delay-tag" class="text-slate-300 font-mono text-sm">0.0 ns</span>
+                    <!-- Antenna Delays -->
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between items-end mb-1">
+                                <label class="text-xs font-semibold text-slate-400">Retard d'Antenne TAG</label>
+                                <span id="val-delay-tag" class="text-blue-400 font-mono text-sm font-bold">0.0 ns</span>
+                            </div>
+                            <input type="range" id="slider-delay-tag" class="slider-blue" min="0" max="10.0" step="0.01" value="0">
                         </div>
-                        <p class="text-xs text-slate-500 mb-2">Retard global de propagation dans le circuit RF du Tag.</p>
-                        <input type="range" id="slider-delay-tag" class="slider-blue" min="0" max="10.0" step="0.01" value="0">
+
+                        <div>
+                            <div class="flex justify-between items-end mb-1">
+                                <label class="text-xs font-semibold text-slate-400">Retard d'Antenne ANCRE</label>
+                                <span id="val-delay-anchor" class="text-blue-400 font-mono text-sm font-bold">0.0 ns</span>
+                            </div>
+                            <input type="range" id="slider-delay-anchor" class="slider-blue" min="0" max="10.0" step="0.01" value="0">
+                        </div>
                     </div>
 
-                    <!-- Anchor Antenna Delay -->
-                    <div>
-                        <div class="flex justify-between mb-1">
-                            <label class="text-sm font-medium text-slate-300">Retard d'Antenne de l'Ancre (Antenna Delay)</label>
-                            <span id="val-delay-anchor" class="text-slate-300 font-mono text-sm">0.0 ns</span>
-                        </div>
-                        <p class="text-xs text-slate-500 mb-2">Retard global de propagation dans le circuit RF de l'Ancre.</p>
-                        <input type="range" id="slider-delay-anchor" class="slider-blue" min="0" max="10.0" step="0.01" value="0">
-                    </div>
-
-                    <!-- Delays of Processing -->
-                    <div class="grid grid-cols-2 gap-4">
+                    <!-- Processing Delays -->
+                    <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
                         <div>
                             <div class="flex justify-between mb-1">
-                                <label class="text-xs font-medium text-slate-400">Réponse Ancre (T<sub>reply1</sub>)</label>
+                                <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">T<sub>reply1</sub> (Ancre)</label>
                             </div>
                             <input type="range" id="slider-reply1" class="slider-orange" min="150" max="800" step="5" value="300">
-                            <span id="val-reply1" class="text-xs font-mono text-slate-400">300.0 µs</span>
+                            <span id="val-reply1" class="block text-xs font-mono text-cerema-orange mt-1">300 µs</span>
                         </div>
                         <div>
                             <div class="flex justify-between mb-1">
-                                <label class="text-xs font-medium text-slate-400">Réponse Tag (T<sub>reply2</sub>)</label>
+                                <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">T<sub>reply2</sub> (Tag)</label>
                             </div>
                             <input type="range" id="slider-reply2" class="slider-orange" min="150" max="800" step="5" value="400">
-                            <span id="val-reply2" class="text-xs font-mono text-slate-400">400.0 µs</span>
+                            <span id="val-reply2" class="block text-xs font-mono text-cerema-orange mt-1">400 µs</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Calibration Bench -->
-            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg">
-                <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                    <svg class="w-5 h-5 text-cerema-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                    Banc de Calibration Virtuel
+            <div class="panel-gradient rounded-xl border border-cerema-border p-5 shadow-xl flex-1 flex flex-col">
+                <h2 class="text-base font-bold text-white mb-4 flex items-center gap-2 border-b border-cerema-border pb-2">
+                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    Système de Calibration
                 </h2>
                 
-                <div class="space-y-4">
-                    <p class="text-xs text-slate-400">
-                        La calibration estime le décalage (biais) en comparant la distance calculée brute avec la distance réelle physique de référence.
-                    </p>
-                    
-                    <div class="grid grid-cols-2 gap-4 bg-cerema-darkbg p-3 rounded-lg border border-slate-800">
-                        <div>
-                            <div class="text-xs text-slate-500 mb-1">Biais Actuel</div>
-                            <div id="display-bias" class="text-xl font-bold font-mono text-red-400">-- cm</div>
-                        </div>
-                        <div>
-                            <div class="text-xs text-slate-500 mb-1">Offset Corrigé</div>
-                            <div id="display-offset" class="text-xl font-bold font-mono text-emerald-400">0 cm</div>
-                        </div>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-cerema-darkbg border border-slate-800 rounded-lg p-3 text-center">
+                        <div class="text-[10px] uppercase font-bold text-slate-500 mb-1">Erreur Constatée</div>
+                        <div id="display-bias" class="text-lg font-bold font-mono text-red-400">-- cm</div>
                     </div>
+                    <div class="bg-cerema-darkbg border border-slate-800 rounded-lg p-3 text-center">
+                        <div class="text-[10px] uppercase font-bold text-slate-500 mb-1">Offset Corrigé</div>
+                        <div id="display-offset" class="text-lg font-bold font-mono text-emerald-400">0.0 cm</div>
+                    </div>
+                </div>
 
-                    <div class="flex gap-2">
-                        <button id="btn-calibrate" class="flex-1 py-2 px-3 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md transition-colors">
-                            Calibrer (Calculer Biais)
-                        </button>
-                        <button id="btn-reset-cal" class="py-2 px-3 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium border border-slate-700 transition-colors">
-                            Reset Offset
-                        </button>
-                    </div>
-
-                    <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-                        <span>Mode de calibration logicielle :</span>
-                        <span class="font-mono bg-cerema-blue/50 text-cerema-cyan px-2 py-0.5 rounded border border-cerema-blue">y = 1.0 · x - Bias</span>
-                    </div>
+                <div class="flex gap-2 mt-auto">
+                    <button id="btn-calibrate" class="flex-1 py-2.5 px-3 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white text-sm font-bold shadow-lg shadow-emerald-900/50 transition-all active:scale-95">
+                        Calibrer le système
+                    </button>
+                    <button id="btn-reset-cal" class="py-2.5 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold border border-slate-700 transition-all active:scale-95">
+                        Reset
+                    </button>
                 </div>
             </div>
 
-            <!-- Virtual Serial Logs -->
-            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg flex-1 flex flex-col min-h-[180px]">
-                <h2 class="text-sm font-semibold text-white mb-2 flex items-center justify-between">
-                    <span>Console UWB (FastAPI Backend)</span>
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                </h2>
-                <div id="console-logs" class="flex-1 font-mono text-xs text-slate-400 bg-cerema-darkbg rounded-lg border border-slate-800 p-3 overflow-y-auto max-h-[220px] space-y-1">
+            <div class="panel-gradient rounded-xl border border-cerema-border p-4 shadow-xl h-[160px] flex flex-col">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[11px] uppercase font-bold text-slate-500 tracking-wider">Console Système</span>
+                    <span class="flex items-center gap-1 text-[10px] text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> En ligne</span>
+                </div>
+                <div id="console-logs" class="flex-1 font-mono text-[11px] text-slate-300 bg-black/40 rounded border border-slate-800/50 p-2 overflow-y-auto flex flex-col justify-end space-y-1">
                     <!-- Logs inserted dynamically -->
                 </div>
             </div>
 
         </div>
 
-        <!-- Right Column: Visualizer & Math calculations -->
-        <div class="col-span-1 lg:col-span-7 flex flex-col gap-6">
+        <div class="col-span-1 lg:col-span-8 flex flex-col gap-6">
             
             <!-- Spatial Simulation View -->
-            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-4 shadow-lg flex flex-col">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-semibold text-slate-400">Visualisation Spatiale des Impulsions Radio (Vitesse de la lumière c)</span>
-                    <button id="btn-ping" class="text-xs bg-cerema-cyan hover:bg-opacity-80 text-white font-bold py-1 px-2.5 rounded transition-all">
-                        Émettre Ping
-                    </button>
+            <div class="panel-gradient rounded-xl border border-cerema-border p-5 shadow-xl flex flex-col relative overflow-hidden">
+                <div class="flex justify-between items-center mb-4 relative z-10">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <svg class="w-4 h-4 text-cerema-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path></svg>
+                        Espace Physique (Propagation)
+                    </h3>
+                    
+                    <div class="flex items-center gap-4">
+                        <!-- Auto Ping Toggle -->
+                        <div class="flex items-center">
+                            <input type="checkbox" id="toggle-autoping" class="hidden toggle-checkbox" />
+                            <label for="toggle-autoping" class="flex items-center cursor-pointer">
+                                <div class="relative">
+                                    <div class="block bg-slate-800 w-8 h-5 rounded-full border border-slate-700"></div>
+                                    <div class="toggle-label dot absolute left-1 top-1 bg-slate-400 w-3 h-3 rounded-full transition-all"></div>
+                                </div>
+                                <span class="ml-2 text-xs font-semibold text-slate-300">Auto-Ping</span>
+                            </label>
+                        </div>
+                        
+                        <button id="btn-ping" class="text-xs bg-cerema-cyan hover:bg-cyan-400 text-black font-bold py-1.5 px-4 rounded-full shadow-neon-cyan transition-all active:scale-95 flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Ping Manuel
+                        </button>
+                    </div>
                 </div>
-                <div class="relative h-[110px] w-full rounded-lg bg-cerema-darkbg border border-slate-800 overflow-hidden">
-                    <!-- Physical elements -->
-                    <div id="sim-tag" class="absolute top-1/2 -translate-y-1/2 left-[40px] flex flex-col items-center">
-                        <div class="w-8 h-8 rounded-lg bg-cerema-cyan flex items-center justify-center font-bold text-xs text-white wave-glow">T</div>
-                        <span class="text-[10px] text-cerema-cyan mt-1 font-bold">Tag (Mobile)</span>
+
+                <!-- Container explicitly sized for Canvas -->
+                <div class="relative w-full h-[120px] bg-[#050B14] rounded-lg border border-slate-800/80 overflow-hidden shadow-inner">
+                    <!-- Grid Background -->
+                    <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(#334155 1px, transparent 1px); background-size: 20px 20px;"></div>
+                    
+                    <!-- DOM Elements overlaid on canvas for perfect crispness -->
+                    <div id="sim-tag" class="absolute top-1/2 -translate-y-1/2 flex flex-col items-center transition-all duration-300 z-10" style="left: 40px;">
+                        <div class="w-10 h-10 rounded-xl bg-cerema-cyan flex items-center justify-center font-bold text-sm text-black shadow-neon-cyan z-10">T</div>
+                        <span class="text-[10px] text-cerema-cyan mt-1 font-bold bg-[#050B14] px-1 rounded">TAG</span>
                     </div>
                     
-                    <div id="sim-anchor" class="absolute top-1/2 -translate-y-1/2 left-[460px] flex flex-col items-center">
-                        <div class="w-8 h-8 rounded-lg bg-cerema-orange flex items-center justify-center font-bold text-xs text-white shadow-md">A1</div>
-                        <span class="text-[10px] text-cerema-orange mt-1 font-bold">Ancre (Fixe)</span>
+                    <div id="sim-anchor" class="absolute top-1/2 -translate-y-1/2 flex flex-col items-center transition-all duration-300 z-10" style="left: 460px;">
+                        <div class="w-10 h-10 rounded-xl bg-cerema-orange flex items-center justify-center font-bold text-sm text-black shadow-neon-orange z-10">A1</div>
+                        <span class="text-[10px] text-cerema-orange mt-1 font-bold bg-[#050B14] px-1 rounded">ANCRE</span>
                     </div>
 
-                    <!-- Wave animation canvas overlay -->
-                    <canvas id="canvas-spatial" width="600" height="110" class="absolute inset-0 pointer-events-none w-full h-full"></canvas>
+                    <!-- Perfect Canvas -->
+                    <div class="absolute inset-0 w-full h-full" id="container-spatial">
+                        <canvas id="canvas-spatial" class="block w-full h-full"></canvas>
+                    </div>
                 </div>
             </div>
 
-            <!-- Sequence Chronogram -->
-            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-4 shadow-lg flex-1 flex flex-col min-h-[300px]">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-semibold text-slate-400">Chronogramme de Communication DS-TWR</span>
-                    <span class="text-[10px] text-slate-500 font-mono">Défilement du temps (t) de haut en bas</span>
+            <div class="panel-gradient rounded-xl border border-cerema-border p-5 shadow-xl flex-1 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Chronogramme Temporel (Animé)
+                    </h3>
+                    <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest bg-slate-800/50 px-2 py-1 rounded">Temps (t) ↓</span>
                 </div>
-                <div class="flex-1 bg-cerema-darkbg rounded-lg border border-slate-800 overflow-hidden relative">
-                    <canvas id="canvas-chrono" class="w-full h-full block" width="600" height="300"></canvas>
-                </div>
-            </div>
-
-            <!-- Math and Results Bench -->
-            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg grid grid-cols-1 md:grid-cols-12 gap-6">
                 
+                <div class="flex-1 w-full bg-[#050B14] rounded-lg border border-slate-800/80 shadow-inner relative min-h-[350px]" id="container-chrono">
+                    <!-- Perfect Canvas -->
+                    <canvas id="canvas-chrono" class="block w-full h-full absolute inset-0"></canvas>
+                </div>
+            </div>
+
+            <div class="panel-gradient rounded-xl border border-cerema-border p-5 shadow-xl grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Metrics -->
-                <div class="md:col-span-5 space-y-4">
-                    <h3 class="text-sm font-bold text-white mb-2 uppercase tracking-wide">Rapport des Distances</h3>
+                <div class="bg-black/30 p-4 rounded-xl border border-slate-800/50 flex flex-col justify-center">
+                    <h3 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-widest">Résultats du Calcul</h3>
                     
                     <div class="space-y-3">
-                        <div class="flex justify-between items-center border-b border-slate-800 pb-1">
-                            <span class="text-xs text-slate-400">Distance Physique</span>
-                            <span id="res-real" class="font-bold text-white font-mono text-sm">-- m</span>
+                        <div class="flex justify-between items-end border-b border-slate-800 pb-1.5">
+                            <span class="text-sm text-slate-300">Distance Physique</span>
+                            <span id="res-real" class="font-bold text-white font-mono text-base">-- m</span>
                         </div>
-                        <div class="flex justify-between items-center border-b border-slate-800 pb-1">
-                            <span class="text-xs text-slate-400 flex items-center gap-1">
-                                Distance Brute
-                                <span class="w-1.5 h-1.5 rounded-full bg-red-400" title="Calcul brut non étalonné"></span>
-                            </span>
-                            <span id="res-raw" class="font-bold text-red-400 font-mono text-sm">-- m</span>
+                        <div class="flex justify-between items-end border-b border-slate-800 pb-1.5">
+                            <span class="text-sm text-slate-300">Distance Brute (Calculée)</span>
+                            <span id="res-raw" class="font-bold text-red-400 font-mono text-base shadow-red-900/20">-- m</span>
                         </div>
-                        <div class="flex justify-between items-center border-b border-slate-800 pb-1">
-                            <span class="text-xs text-slate-400 flex items-center gap-1">
-                                Distance Calibrée
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Avec compensation logicielle"></span>
-                            </span>
-                            <span id="res-calibrated" class="font-bold text-emerald-400 font-mono text-sm">-- m</span>
+                        <div class="flex justify-between items-end border-b border-slate-800 pb-1.5">
+                            <span class="text-sm text-slate-300">Distance Calibrée</span>
+                            <span id="res-calibrated" class="font-bold text-emerald-400 font-mono text-base">-- m</span>
                         </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs text-slate-400">Erreur Résiduelle</span>
-                            <span id="res-error" class="font-bold text-white font-mono text-sm">-- cm</span>
+                        <div class="flex justify-between items-end pt-1">
+                            <span class="text-sm text-slate-300">Erreur Finale</span>
+                            <span id="res-error" class="font-bold text-white font-mono text-lg bg-slate-800 px-2 py-0.5 rounded">-- cm</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Math Equations -->
-                <div class="md:col-span-7 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6 flex flex-col justify-center">
-                    <h3 class="text-sm font-bold text-white mb-2 uppercase tracking-wide">Formules du Temps de Vol (ToF)</h3>
+                <div class="flex flex-col justify-center">
+                    <h3 class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest">Formule ToF Asymétrique</h3>
                     
-                    <div class="space-y-3 text-xs text-slate-300">
-                        <div class="p-2.5 bg-cerema-darkbg rounded border border-slate-800 font-mono text-center">
-                            T<sub>of</sub> = (T<sub>round1</sub> · T<sub>round2</sub> - T<sub>reply1</sub> · T<sub>reply2</sub>) / (T<sub>round1</sub> + T<sub>round2</sub> + T<sub>reply1</sub> + T<sub>reply2</sub>)
-                        </div>
-                        <div class="leading-relaxed">
-                            Les temps <strong class="text-slate-200">T<sub>round</sub></strong> et <strong class="text-slate-200">T<sub>reply</sub></strong> mesurés par les puces DW1000 incluent l'erreur due aux <strong class="text-cerema-cyan">Retards d'Antenne</strong> :
-                            <div class="mt-1 font-mono text-[10px] text-slate-400 space-y-0.5">
-                                • T<sub>round1_mesure</sub> = T<sub>round1_physique</sub> + Antenna_Delay<sub>Tag</sub><br>
-                                • T<sub>reply1_mesure</sub> = T<sub>reply1_physique</sub> - Antenna_Delay<sub>Anchor</sub>
-                            </div>
-                        </div>
-                        <p class="text-[10px] text-slate-500 italic">
-                            Ces décalages asymétriques provoquent un biais constant d'environ +78 cm qui doit être modélisé ou compensé par étalonnage.
-                        </p>
+                    <div class="p-3 bg-blue-900/10 rounded-lg border border-blue-900/30 text-center mb-3">
+                        <code class="font-mono text-sm text-blue-200">
+                            T<sub>of</sub> = <span class="text-white">(T<sub>r1</sub>·T<sub>r2</sub> - T<sub>p1</sub>·T<sub>p2</sub>)</span> / <span class="text-white">(T<sub>r1</sub>+T<sub>r2</sub>+T<sub>p1</sub>+T<sub>p2</sub>)</span>
+                        </code>
+                    </div>
+                    <div class="text-[11px] text-slate-400 leading-relaxed">
+                        <p class="mb-1">Les temps de vol mesurés incluent le <strong>Retard d'Antenne</strong> matériel qui crée un biais systématique :</p>
+                        <ul class="list-disc pl-4 space-y-1 text-slate-300 font-mono text-[10px]">
+                            <li>T<sub>mesuré</sub> = T<sub>physique</sub> + D<sub>tag</sub>/2 + D<sub>ancre</sub>/2</li>
+                        </ul>
+                        <p class="mt-2 text-cerema-cyan/80">L'étalonnage logiciel compense ce biais constant (offset).</p>
                     </div>
                 </div>
-
             </div>
 
         </div>
 
     </div>
 
-    <!-- Application Script -->
     <script>
-        // Physical constant: speed of light (m/s)
-        const SPEED_OF_LIGHT = 299792458;
+        // --- Core Physics Constants ---
+        const SPEED_OF_LIGHT = 299792458; // m/s
         
-        // Scale settings for animation
-        const METERS_TO_PIXELS_RATIO = 16; // 1 meter = 16px on canvas representation
-        const MAX_CANVAS_WIDTH = 550;
-        
-        // Time multiplier for sequence scroll animation
-        let simTime = 0;
-        let lastTimestamp = 0;
-        
-        // Active dynamic simulation states
-        let pulseTimer = null;
-        let activePulses = [];
-        let offsetCorrectionMeters = 0;
-
-        // User parameters initial state
+        // --- Global State ---
         let config = {
-            distance: 5.0,        // real geometric distance (m)
-            delayTag: 0.0,        // Tag antenna delay (ns)
-            delayAnchor: 0.0,     // Anchor antenna delay (ns)
-            reply1: 300,          // T_reply1 delay (us)
-            reply2: 400,          // T_reply2 delay (us)
+            distance: 5.0,
+            delayTag: 0.0,
+            delayAnchor: 0.0,
+            reply1: 300,
+            reply2: 400,
         };
 
-        // DOM elements cache
+        let state = {
+            offsetCorrectionMeters: 0,
+            activePing: null, // { startTime: ms }
+            autoPing: false,
+            lastAutoPing: 0
+        };
+
+        // --- DOM Elements ---
         const dom = {
             sliderDistance: document.getElementById('slider-distance'),
             valDistance: document.getElementById('val-distance'),
@@ -359,6 +376,7 @@
             btnCalibrate: document.getElementById('btn-calibrate'),
             btnResetCal: document.getElementById('btn-reset-cal'),
             btnPing: document.getElementById('btn-ping'),
+            toggleAutoPing: document.getElementById('toggle-autoping'),
             consoleLogs: document.getElementById('console-logs'),
             resReal: document.getElementById('res-real'),
             resRaw: document.getElementById('res-raw'),
@@ -367,452 +385,400 @@
             simTag: document.getElementById('sim-tag'),
             simAnchor: document.getElementById('sim-anchor'),
             canvasSpatial: document.getElementById('canvas-spatial'),
-            canvasChrono: document.getElementById('canvas-chrono')
+            containerSpatial: document.getElementById('container-spatial'),
+            canvasChrono: document.getElementById('canvas-chrono'),
+            containerChrono: document.getElementById('container-chrono')
         };
 
-        // Error logging and standard tracking
-        function addLog(message, type = 'info') {
-            const timeStr = new Date().toISOString().slice(11, 19);
-            const item = document.createElement('div');
+        // --- Utils ---
+        function addLog(msg, type = 'info') {
+            const time = new Date().toISOString().slice(11, 23); // Includes ms
+            const div = document.createElement('div');
             let color = 'text-slate-400';
             if (type === 'success') color = 'text-emerald-400';
-            else if (type === 'warning') color = 'text-cerema-orange';
-            else if (type === 'error') color = 'text-red-400';
-            else if (type === 'highlight') color = 'text-cerema-cyan';
+            if (type === 'warn') color = 'text-cerema-orange';
+            if (type === 'err') color = 'text-red-400';
+            if (type === 'tx') color = 'text-cerema-cyan';
             
-            item.className = `${color} leading-5`;
-            item.innerHTML = `<span class="text-slate-600">[${timeStr}]</span> ${message}`;
-            dom.consoleLogs.appendChild(item);
+            div.className = `${color} leading-tight`;
+            div.innerHTML = `<span class="text-slate-600 mr-2">[${time}]</span>${msg}`;
+            
+            dom.consoleLogs.appendChild(div);
             dom.consoleLogs.scrollTop = dom.consoleLogs.scrollHeight;
+            if (dom.consoleLogs.children.length > 30) dom.consoleLogs.firstChild.remove();
+        }
+
+        // --- Physics Math Engine ---
+        function calculateDS_TWR() {
+            // 1. Physical propagation
+            const tofPhysical = config.distance / SPEED_OF_LIGHT;
             
-            // Limit logging rows
-            while (dom.consoleLogs.childNodes.length > 50) {
-                dom.consoleLogs.removeChild(dom.consoleLogs.firstChild);
+            // Delays in seconds
+            const dTag = config.delayTag * 1e-9;
+            const dAnc = config.delayAnchor * 1e-9;
+            const r1 = config.reply1 * 1e-6;
+            const r2 = config.reply2 * 1e-6;
+            
+            // 2. Hardware Timestamp modelling (Decawave DW1000 standard behavior)
+            // The antenna delay is effectively added to the measured Time of Flight
+            // because TX is timestamped early, and RX is timestamped late.
+            
+            // T_round1 (Tag to Anchor to Tag)
+            const T_round1 = (tofPhysical * 2) + r1 + dTag + dAnc;
+            // T_reply1 (Anchor processing)
+            const T_reply1 = r1;
+            // T_reply2 (Tag processing)
+            const T_reply2 = r2;
+            // T_round2 (Anchor to Tag to Anchor)
+            const T_round2 = (tofPhysical * 2) + r2 + dTag + dAnc;
+
+            // 3. Asymmetric ToF Calculation
+            const denom = T_round1 + T_round2 + T_reply1 + T_reply2;
+            let tofCalculated = 0;
+            if (denom > 0) {
+                tofCalculated = ((T_round1 * T_round2) - (T_reply1 * T_reply2)) / denom;
             }
+            
+            const rawDistance = tofCalculated * SPEED_OF_LIGHT;
+            const bias = rawDistance - config.distance;
+            const calibratedDistance = rawDistance - state.offsetCorrectionMeters;
+            const error = calibratedDistance - config.distance;
+
+            return { rawDistance, bias, calibratedDistance, error };
         }
 
-        // Mathematical conversion utilities
-        function nsToMeters(ns) {
-            return (ns * 1e-9) * SPEED_OF_LIGHT;
-        }
-
-        function metersToNs(m) {
-            return (m / SPEED_OF_LIGHT) * 1e9;
-        }
-
-        // Physics Calculation Core Engine
-        function calculateTof() {
-            try {
-                // 1. Calculate physical time-of-flight in seconds
-                const tofPhysical = config.distance / SPEED_OF_LIGHT;
-                
-                // Convert micro and nano parameters to standard seconds
-                const delayTagSec = config.delayTag * 1e-9;
-                const delayAnchorSec = config.delayAnchor * 1e-9;
-                const reply1Sec = config.reply1 * 1e-6;
-                const reply2Sec = config.reply2 * 1e-6;
-                
-                // 2. Models absolute system timestamps including hardware Delays
-                // T0 = POLL TX time by Tag (real emission in the air)
-                const t_sp_physical = 0; 
-                // The Tag registers the timestamp earlier due to its internal TX delay
-                const t_sp_measured = t_sp_physical - (delayTagSec / 2);
-                
-                // POLL arrives at Anchor after time-of-flight propagation
-                const t_rp_physical = t_sp_physical + tofPhysical;
-                // Anchor registers the timestamp later due to its internal RX delay
-                const t_rp_measured = t_rp_physical + (delayAnchorSec / 2);
-                
-                // Anchor prepares POLL_ACK response after Processing delay (reply1)
-                const t_sr_physical = t_rp_physical + reply1Sec;
-                // Anchor registers TX earlier
-                const t_sr_measured = t_sr_physical - (delayAnchorSec / 2);
-                
-                // POLL_ACK arrives at Tag
-                const t_rr_physical = t_sr_physical + tofPhysical;
-                // Tag registers RX later
-                const t_rr_measured = t_rr_physical + (delayTagSec / 2);
-                
-                // Tag prepares RANGE response after processing delay (reply2)
-                const t_sf_physical = t_rr_physical + reply2Sec;
-                // Tag registers TX earlier
-                const t_sf_measured = t_sf_physical - (delayTagSec / 2);
-                
-                // RANGE arrives at Anchor
-                const t_rf_physical = t_sf_physical + tofPhysical;
-                // Anchor registers RX later
-                const t_rf_measured = t_rf_physical + (delayAnchorSec / 2);
-
-                // 3. Subtract measurements to get duration deltas as calculated by hardware chips
-                const T_round1 = t_rr_measured - t_sp_measured;
-                const T_reply1 = t_sr_measured - t_rp_measured;
-                const T_reply2 = t_sf_measured - t_rr_measured;
-                const T_round2 = t_rf_measured - t_sr_measured;
-
-                // 4. Applies standard symmetric DS-TWR equation (Decawave recommendation)
-                const denom = T_round1 + T_round2 + T_reply1 + T_reply2;
-                let calculatedTof = 0;
-                if (denom > 0) {
-                    calculatedTof = ((T_round1 * T_round2) - (T_reply1 * T_reply2)) / denom;
-                }
-                
-                // Compute corresponding raw distance
-                const distanceRaw = calculatedTof * SPEED_OF_LIGHT;
-                const distanceCalibrated = distanceRaw - offsetCorrectionMeters;
-                const error = distanceCalibrated - config.distance;
-
-                return {
-                    realDistance: config.distance,
-                    rawDistance: distanceRaw,
-                    calibratedDistance: distanceCalibrated,
-                    bias: distanceRaw - config.distance,
-                    error: error,
-                    T_round1, T_reply1, T_reply2, T_round2
-                };
-            } catch (err) {
-                console.error("Error calculating DS-TWR logic:", err);
-                return { realDistance: 0, rawDistance: 0, calibratedDistance: 0, bias: 0, error: 0 };
-            }
-        }
-
-        // Update display text and colors
+        // --- UI Updates ---
         function updateUI() {
-            const results = calculateTof();
+            const res = calculateDS_TWR();
             
-            dom.resReal.innerText = results.realDistance.toFixed(2) + " m";
-            dom.resRaw.innerText = results.rawDistance.toFixed(2) + " m";
-            dom.resCalibrated.innerText = results.calibratedDistance.toFixed(2) + " m";
+            dom.resReal.innerText = config.distance.toFixed(2) + " m";
+            dom.resRaw.innerText = res.rawDistance.toFixed(2) + " m";
+            dom.resCalibrated.innerText = res.calibratedDistance.toFixed(2) + " m";
             
-            const errCm = results.error * 100;
-            dom.resError.innerText = (errCm >= 0 ? "+" : "") + errCm.toFixed(1) + " cm";
+            const errCm = res.error * 100;
+            dom.resError.innerText = (errCm > 0 ? "+" : "") + errCm.toFixed(1) + " cm";
             
-            if (Math.abs(errCm) < 3.0) {
-                dom.resError.className = "font-bold text-emerald-400 font-mono text-sm";
-            } else if (Math.abs(errCm) < 15.0) {
-                dom.resError.className = "font-bold text-cerema-orange font-mono text-sm";
-            } else {
-                dom.resError.className = "font-bold text-red-400 font-mono text-sm";
+            if (Math.abs(errCm) < 2) dom.resError.className = "font-bold text-emerald-400 font-mono text-lg bg-emerald-900/30 px-2 py-0.5 rounded";
+            else if (Math.abs(errCm) < 10) dom.resError.className = "font-bold text-cerema-orange font-mono text-lg bg-orange-900/30 px-2 py-0.5 rounded";
+            else dom.resError.className = "font-bold text-red-400 font-mono text-lg bg-red-900/30 px-2 py-0.5 rounded shadow-[0_0_10px_rgba(248,113,113,0.3)]";
+
+            const biasCm = res.bias * 100;
+            dom.displayBias.innerText = (biasCm > 0 ? "+" : "") + biasCm.toFixed(1) + " cm";
+            dom.displayOffset.innerText = (state.offsetCorrectionMeters * -100).toFixed(1) + " cm";
+        }
+
+        function resizeCanvas(canvas, container) {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = container.getBoundingClientRect();
+            
+            // Set actual internal canvas size scaled by DPR
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            
+            // Set CSS size to match container perfectly
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            
+            return { w: rect.width, h: rect.height, ctx };
+        }
+
+        // --- Continuous Render Loop ---
+        function gameLoop() {
+            const now = Date.now();
+            
+            // Auto Ping Logic
+            if (state.autoPing && now - state.lastAutoPing > 2000) {
+                triggerPing(true); // silent log
             }
 
-            const biasCm = results.bias * 100;
-            dom.displayBias.innerText = (biasCm >= 0 ? "+" : "") + biasCm.toFixed(1) + " cm";
-            dom.displayOffset.innerText = (offsetCorrectionMeters * -100).toFixed(1) + " cm";
+            // 1. Setup contexts
+            const spatial = resizeCanvas(dom.canvasSpatial, dom.containerSpatial);
+            const chrono = resizeCanvas(dom.canvasChrono, dom.containerChrono);
 
-            // Physical element scaling positions
-            const tagLeft = 40;
-            const newAnchorLeft = Math.max(120, Math.min(MAX_CANVAS_WIDTH, tagLeft + (config.distance * METERS_TO_PIXELS_RATIO)));
-            dom.simAnchor.style.left = newAnchorLeft + "px";
+            // Calculate layout bounds for Spatial
+            const minX = 40;
+            const maxX = spatial.w - 40;
+            const availableX = maxX - minX;
+            const distancePct = (config.distance - 0.5) / 24.5; // 0.5 to 25m range
+            const tagX = minX;
+            const anchorX = minX + 80 + (availableX - 80) * distancePct;
+            const spY = spatial.h / 2;
 
-            // Trigger canvas draw updates
-            drawSpatialView();
-            drawChronoView(results);
-        }
+            // Sync DOM elements to canvas coordinates
+            dom.simTag.style.left = `${tagX - 20}px`;
+            dom.simAnchor.style.left = `${anchorX - 20}px`;
 
-        // Calibration Action
-        function calibrate() {
-            const results = calculateTof();
-            offsetCorrectionMeters = results.bias;
-            addLog(`Calibration lancée. Biais de distance détecté : ${(results.bias * 100).toFixed(2)} cm.`, 'success');
-            addLog(`Retard d'antenne corrigé logiciellement dans le dashboard.`, 'info');
-            updateUI();
-        }
+            // Draw Base Spatial Line
+            spatial.ctx.strokeStyle = '#1E293B';
+            spatial.ctx.lineWidth = 2;
+            spatial.ctx.setLineDash([5, 5]);
+            spatial.ctx.beginPath();
+            spatial.ctx.moveTo(tagX, spY);
+            spatial.ctx.lineTo(anchorX, spY);
+            spatial.ctx.stroke();
+            spatial.ctx.setLineDash([]);
 
-        // Reset offset calibration
-        function resetOffset() {
-            offsetCorrectionMeters = 0;
-            addLog("Offset de calibration réinitialisé.", "warning");
-            updateUI();
-        }
+            // Draw Base Chrono Layout
+            const tX = chrono.w * 0.25;
+            const aX = chrono.w * 0.75;
+            
+            // Vertical lifelines
+            chrono.ctx.strokeStyle = '#1E293B';
+            chrono.ctx.lineWidth = 2;
+            chrono.ctx.beginPath();
+            chrono.ctx.moveTo(tX, 40); chrono.ctx.lineTo(tX, chrono.h - 20);
+            chrono.ctx.moveTo(aX, 40); chrono.ctx.lineTo(aX, chrono.h - 20);
+            chrono.ctx.stroke();
 
-        // Draw dynamic signal propagation elements
-        function drawSpatialView() {
-            const canvas = dom.canvasSpatial;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Timeline Headers
+            chrono.ctx.font = 'bold 12px Inter';
+            chrono.ctx.textAlign = 'center';
+            chrono.ctx.fillStyle = '#00D8D6'; chrono.ctx.fillText("TAG", tX, 25);
+            chrono.ctx.fillStyle = '#FF9F43'; chrono.ctx.fillText("ANCRE", aX, 25);
 
-            const tagX = 40 + 16; // centered
-            const anchorX = Math.max(120, Math.min(MAX_CANVAS_WIDTH, 40 + (config.distance * METERS_TO_PIXELS_RATIO))) + 16;
-            const y = canvas.height / 2;
+            // Time scaling config
+            const yStart = 60;
+            const stepY = (chrono.h - 80) / 4; 
+            const yPollTx = yStart;
+            const yPollRx = yStart + stepY * 0.6;
+            const yAckTx = yPollRx + (config.reply1 / 800) * stepY; // Visual scale for processing
+            const yAckRx = yAckTx + stepY * 0.6;
+            const yRangeTx = yAckRx + (config.reply2 / 800) * stepY;
+            const yRangeRx = yRangeTx + stepY * 0.6;
 
-            // Draw link line
-            ctx.strokeStyle = 'rgba(30, 41, 59, 0.5)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(tagX, y);
-            ctx.lineTo(anchorX, y);
-            ctx.stroke();
+            // Draw Antenna Delay Blocks visually on lifelines
+            if (config.delayTag > 0) {
+                chrono.ctx.fillStyle = 'rgba(59, 130, 246, 0.4)';
+                chrono.ctx.fillRect(tX - 4, yPollTx, 8, 10);
+                chrono.ctx.fillRect(tX - 4, yAckRx, 8, 10);
+                chrono.ctx.fillRect(tX - 4, yRangeTx, 8, 10);
+            }
+            if (config.delayAnchor > 0) {
+                chrono.ctx.fillStyle = 'rgba(59, 130, 246, 0.4)';
+                chrono.ctx.fillRect(aX - 4, yPollRx, 8, 10);
+                chrono.ctx.fillRect(aX - 4, yAckTx, 8, 10);
+                chrono.ctx.fillRect(aX - 4, yRangeRx, 8, 10);
+            }
 
-            // Update and draw active pulses
-            const now = Date.now();
-            activePulses = activePulses.filter(p => {
-                const elapsed = now - p.startTime;
-                const duration = 1200; // ms for round trip
-                if (elapsed > duration) return false;
-
-                const progress = elapsed / duration;
-                let currentX;
+            if (state.activePing) {
+                const elapsed = now - state.activePing;
+                const totalDur = 1600; // ms for full sequence
                 
-                if (p.type === 'POLL') {
-                    // Tag -> Anchor (0.0 to 0.3 progress range)
-                    const p1 = Math.min(1.0, progress / 0.3);
-                    currentX = tagX + (anchorX - tagX) * p1;
-                    if (progress <= 0.3) drawRadioWave(ctx, currentX, y, '#00A3A6', 1);
-                } else if (p.type === 'POLL_ACK') {
-                    // Anchor -> Tag (0.35 to 0.65 progress range)
-                    if (progress > 0.35 && progress <= 0.65) {
-                        const p2 = Math.min(1.0, (progress - 0.35) / 0.3);
-                        currentX = anchorX - (anchorX - tagX) * p2;
-                        drawRadioWave(ctx, currentX, y, '#F29400', -1);
+                if (elapsed > totalDur) {
+                    state.activePing = null;
+                } else {
+                    // Timing phases: 0-30% POLL, 30-40% Proc1, 40-70% ACK, 70-80% Proc2, 80-100% RANGE
+                    const p = elapsed / totalDur;
+                    
+                    // --- POLL Phase ---
+                    if (p > 0) {
+                        const phaseP = Math.min(1, p / 0.3);
+                        const curX = tagX + (anchorX - tagX) * phaseP;
+                        if (phaseP < 1) drawSpatialWave(spatial.ctx, curX, spY, '#00D8D6', 1);
+                        
+                        drawChronoArrow(chrono.ctx, tX, yPollTx, aX, yPollRx, phaseP, '#00D8D6', "POLL");
                     }
-                } else if (p.type === 'RANGE') {
-                    // Tag -> Anchor (0.7 to 1.0 progress range)
-                    if (progress > 0.7) {
-                        const p3 = Math.min(1.0, (progress - 0.7) / 0.3);
-                        currentX = tagX + (anchorX - tagX) * p3;
-                        drawRadioWave(ctx, currentX, y, '#3B82F6', 1);
+                    
+                    // --- Reply 1 Wait Phase ---
+                    if (p > 0.3) {
+                        const phaseP = Math.min(1, (p - 0.3) / 0.1);
+                        drawProcessingBar(chrono.ctx, aX, yPollRx, yAckTx, phaseP, '#FF9F43');
+                    }
+
+                    // --- POLL_ACK Phase ---
+                    if (p > 0.4) {
+                        const phaseP = Math.min(1, (p - 0.4) / 0.3);
+                        const curX = anchorX - (anchorX - tagX) * phaseP;
+                        if (phaseP < 1) drawSpatialWave(spatial.ctx, curX, spY, '#FF9F43', -1);
+                        
+                        drawChronoArrow(chrono.ctx, aX, yAckTx, tX, yAckRx, phaseP, '#FF9F43', "POLL_ACK");
+                    }
+
+                    // --- Reply 2 Wait Phase ---
+                    if (p > 0.7) {
+                        const phaseP = Math.min(1, (p - 0.7) / 0.1);
+                        drawProcessingBar(chrono.ctx, tX, yAckRx, yRangeTx, phaseP, '#3B82F6');
+                    }
+
+                    // --- RANGE Phase ---
+                    if (p > 0.8) {
+                        const phaseP = Math.min(1, (p - 0.8) / 0.2);
+                        const curX = tagX + (anchorX - tagX) * phaseP;
+                        if (phaseP < 1) drawSpatialWave(spatial.ctx, curX, spY, '#3B82F6', 1);
+                        
+                        drawChronoArrow(chrono.ctx, tX, yRangeTx, aX, yRangeRx, phaseP, '#3B82F6', "RANGE");
                     }
                 }
-                return true;
-            });
-
-            if (activePulses.length > 0) {
-                requestAnimationFrame(drawSpatialView);
             }
+
+            // Draw Math Labels on Chrono (Static once complete, or greyed out)
+            drawChronoLabels(chrono.ctx, tX, aX, yPollTx, yPollRx, yAckTx, yAckRx, yRangeTx, yRangeRx);
+
+            requestAnimationFrame(gameLoop);
         }
 
-        function drawRadioWave(ctx, x, y, color, direction) {
+        function drawSpatialWave(ctx, x, y, color, dir) {
             ctx.save();
             ctx.strokeStyle = color;
             ctx.lineWidth = 3;
-            ctx.lineCap = 'round';
             ctx.shadowColor = color;
-            ctx.shadowBlur = 8;
+            ctx.shadowBlur = 10;
             
-            // Draw standard crescent wave
             ctx.beginPath();
-            if (direction > 0) {
-                ctx.arc(x - 5, y, 15, -Math.PI/3, Math.PI/3);
+            if (dir > 0) {
+                ctx.arc(x - 5, y, 15, -Math.PI/2.5, Math.PI/2.5);
                 ctx.stroke();
-                ctx.beginPath();
-                ctx.lineWidth = 1.5;
-                ctx.arc(x - 10, y, 8, -Math.PI/3, Math.PI/3);
-                ctx.stroke();
+                ctx.beginPath(); ctx.lineWidth = 1; ctx.arc(x - 12, y, 25, -Math.PI/3, Math.PI/3); ctx.stroke();
             } else {
-                ctx.arc(x + 5, y, 15, 2*Math.PI/3, 4*Math.PI/3);
+                ctx.arc(x + 5, y, 15, Math.PI - Math.PI/2.5, Math.PI + Math.PI/2.5);
                 ctx.stroke();
-                ctx.beginPath();
-                ctx.lineWidth = 1.5;
-                ctx.arc(x + 10, y, 8, 2*Math.PI/3, 4*Math.PI/3);
-                ctx.stroke();
+                ctx.beginPath(); ctx.lineWidth = 1; ctx.arc(x + 12, y, 25, Math.PI - Math.PI/3, Math.PI + Math.PI/3); ctx.stroke();
             }
+            
+            // Leading bright dot
+            ctx.beginPath();
+            ctx.fillStyle = '#FFF';
+            ctx.arc(dir > 0 ? x + 5 : x - 5, y, 3, 0, Math.PI*2);
+            ctx.fill();
+            
             ctx.restore();
         }
 
-        function triggerPing() {
-            activePulses = [
-                { type: 'POLL', startTime: Date.now() },
-                { type: 'POLL_ACK', startTime: Date.now() },
-                { type: 'RANGE', startTime: Date.now() }
-            ];
+        function drawChronoArrow(ctx, startX, startY, endX, endY, progress, color, label) {
+            const curX = startX + (endX - startX) * progress;
+            const curY = startY + (endY - startY) * progress;
             
-            addLog("Emission d'une rafale de mesure DS-TWR...", "highlight");
-            setTimeout(() => addLog("Envoi message UWB POLL (Tag -> Ancre 1)", "info"), 50);
-            setTimeout(() => addLog("Réception POLL, traitement local...", "info"), 200);
-            setTimeout(() => addLog("Renvoi message UWB POLL_ACK (Ancre 1 -> Tag)", "info"), 420);
-            setTimeout(() => addLog("Réception POLL_ACK, renvoi message UWB RANGE (Tag -> Ancre 1)", "info"), 840);
-            setTimeout(() => {
-                const results = calculateTof();
-                addLog(`Ranging complété. ToF brut calculé: ${(results.rawDistance / SPEED_OF_LIGHT * 1e9).toFixed(2)} ns. Distance brute: ${results.rawDistance.toFixed(2)} m.`, "success");
-                if (Math.abs(results.error) > 0.05) {
-                    addLog(`Biais détecté : ${(results.error * 100).toFixed(1)} cm. Étalonnez le système pour éliminer le retard d'antenne !`, "warning");
-                }
-            }, 1150);
-
-            requestAnimationFrame(drawSpatialView);
-        }
-
-        function drawChronoView(results) {
-            const canvas = dom.canvasChrono;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const paddingLeft = 160;
-            const paddingRight = 160;
-            const w = canvas.width - paddingLeft - paddingRight;
-            const h = canvas.height;
-
-            const tX = paddingLeft;
-            const aX = canvas.width - paddingRight;
-
-            // 1. Draw timelines
-            ctx.strokeStyle = '#1e293b';
-            ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.moveTo(tX, 20); ctx.lineTo(tX, h - 20); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(aX, 20); ctx.lineTo(aX, h - 20); ctx.stroke();
-
-            // Timeline labels
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#00A3A6';
-            ctx.font = 'bold 12px Inter, sans-serif';
-            ctx.fillText("Tag", tX, 15);
-            ctx.fillStyle = '#F29400';
-            ctx.fillText("Ancre 1", aX, 15);
-
-            // Time coordinates on sequence chart
-            const t_poll_tx = 40;
-            const t_poll_rx = 90;
-            const t_ack_tx = 160;
-            const t_ack_rx = 210;
-            const t_range_tx = 250;
-            const t_range_rx = 290;
-
-            // 2. Draw Radio Message lines (oblique arrows)
+            ctx.save();
+            // Draw background faint track
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = 0.2;
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(endX, endY); ctx.stroke();
+            
+            // Draw active progressing line
+            ctx.globalAlpha = 1.0;
             ctx.lineWidth = 2.5;
-            ctx.shadowBlur = 4;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8;
+            ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(curX, curY); ctx.stroke();
             
-            // POLL (Tag -> Anchor)
-            ctx.strokeStyle = '#00A3A6';
-            ctx.shadowColor = '#00A3A6';
-            drawArrow(ctx, tX, t_poll_tx, aX, t_poll_rx);
-            ctx.textAlign = 'left';
-            ctx.fillStyle = '#00A3A6';
-            ctx.font = 'bold 10px JetBrains Mono, monospace';
-            ctx.fillText("POLL", tX + 40, t_poll_tx + 20);
-
-            // POLL_ACK (Anchor -> Tag)
-            ctx.strokeStyle = '#F29400';
-            ctx.shadowColor = '#F29400';
-            drawArrow(ctx, aX, t_ack_tx, tX, t_ack_rx);
-            ctx.fillStyle = '#F29400';
-            ctx.fillText("POLL_ACK", tX + 40, t_ack_tx + 20);
-
-            // RANGE (Tag -> Anchor)
-            ctx.strokeStyle = '#3B82F6';
-            ctx.shadowColor = '#3B82F6';
-            drawArrow(ctx, tX, t_range_tx, aX, t_range_rx);
-            ctx.fillStyle = '#3B82F6';
-            ctx.fillText("RANGE", tX + 40, t_range_tx + 20);
-            
-            ctx.shadowBlur = 0; // reset
-
-            // 3. Time labels (timestamps)
-            ctx.fillStyle = '#94a3b8';
-            ctx.font = '10px JetBrains Mono, monospace';
-            
-            // Show TX/RX Timestamps with or without Antenna Delay
-            const offsetTag = config.delayTag > 0 ? ` (+${config.delayTag.toFixed(1)}ns)` : "";
-            const offsetAnchor = config.delayAnchor > 0 ? ` (+${config.delayAnchor.toFixed(1)}ns)` : "";
-
-            ctx.textAlign = 'right';
-            ctx.fillText(`T_sp (TX POLL)${offsetTag}`, tX - 10, t_poll_tx + 4);
-            ctx.fillText(`T_rr (RX ACK)${offsetTag}`, tX - 10, t_ack_rx + 4);
-            ctx.fillText(`T_sf (TX RANGE)${offsetTag}`, tX - 10, t_range_tx + 4);
-
-            ctx.textAlign = 'left';
-            ctx.fillText(`T_rp (RX POLL)${offsetAnchor}`, aX + 10, t_poll_rx + 4);
-            ctx.fillText(`T_sr (TX ACK)${offsetAnchor}`, aX + 10, t_ack_tx + 4);
-            ctx.fillText(`T_rf (RX RANGE)${offsetAnchor}`, aX + 10, t_range_rx + 4);
-
-            // 4. Processing delays bracket lines
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
-            ctx.lineWidth = 1.5;
-            
-            // T_reply1 bracket (Anchor)
+            // Draw moving arrowhead
+            const angle = Math.atan2(endY - startY, endX - startX);
+            const headlen = 10;
             ctx.beginPath();
-            ctx.moveTo(aX - 8, t_poll_rx);
-            ctx.lineTo(aX - 25, t_poll_rx);
-            ctx.lineTo(aX - 25, t_ack_tx);
-            ctx.lineTo(aX - 8, t_ack_tx);
-            ctx.stroke();
-            ctx.fillStyle = '#94a3b8';
-            ctx.font = '10px Inter, sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText(`T_reply1 = ${config.reply1} µs`, aX - 30, (t_poll_rx + t_ack_tx) / 2 + 4);
-
-            // T_reply2 bracket (Tag)
-            ctx.beginPath();
-            ctx.moveTo(tX + 8, t_ack_rx);
-            ctx.lineTo(tX + 25, t_ack_rx);
-            ctx.lineTo(tX + 25, t_range_tx);
-            ctx.lineTo(tX + 8, t_range_tx);
-            ctx.stroke();
-            ctx.textAlign = 'left';
-            ctx.fillText(`T_reply2 = ${config.reply2} µs`, tX + 30, (t_ack_rx + t_range_tx) / 2 + 4);
-        }
-
-        function drawArrow(ctx, fromX, fromY, toX, toY) {
-            const headlen = 10; // length of head in pixels
-            const dx = toX - fromX;
-            const dy = toY - fromY;
-            const angle = Math.atan2(dy, dx);
-            
-            ctx.beginPath();
-            ctx.moveTo(fromX, fromY);
-            ctx.lineTo(toX, toY);
-            ctx.stroke();
-            
-            ctx.beginPath();
-            ctx.moveTo(toX, toY);
-            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
-            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.moveTo(curX, curY);
+            ctx.lineTo(curX - headlen * Math.cos(angle - Math.PI / 6), curY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(curX - headlen * Math.cos(angle + Math.PI / 6), curY - headlen * Math.sin(angle + Math.PI / 6));
             ctx.closePath();
-            ctx.stroke();
+            ctx.fillStyle = '#FFF';
+            ctx.fill();
+            
+            // Label
+            ctx.fillStyle = color;
+            ctx.font = 'bold 11px JetBrains Mono';
+            ctx.shadowBlur = 0;
+            const textX = startX < endX ? startX + 20 : startX - 20;
+            ctx.textAlign = startX < endX ? 'left' : 'right';
+            ctx.fillText(label, textX, startY + 15);
+            ctx.restore();
         }
 
-        // --- Event Listeners and input bindings ---
-        dom.sliderDistance.addEventListener('input', (e) => {
-            config.distance = parseFloat(e.target.value);
-            dom.valDistance.innerText = config.distance.toFixed(2) + " m";
+        function drawProcessingBar(ctx, x, startY, endY, progress, color) {
+            const h = (endY - startY) * progress;
+            ctx.fillStyle = color;
+            ctx.globalAlpha = 0.6;
+            const w = 6;
+            ctx.fillRect(x - w/2, startY, w, h);
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawChronoLabels(ctx, tX, aX, pT, pR, aT, aR, rT, rR) {
+            ctx.fillStyle = '#64748B';
+            ctx.font = '10px JetBrains Mono';
+            ctx.textAlign = 'right';
+            ctx.fillText("T_sp", tX - 15, pT + 4);
+            ctx.fillText("T_rr", tX - 15, aR + 4);
+            ctx.fillText("T_sf", tX - 15, rT + 4);
+            
+            ctx.textAlign = 'left';
+            ctx.fillText("T_rp", aX + 15, pR + 4);
+            ctx.fillText("T_sr", aX + 15, aT + 4);
+            ctx.fillText("T_rf", aX + 15, rR + 4);
+        }
+
+        function triggerPing(silent = false) {
+            state.activePing = Date.now();
+            state.lastAutoPing = state.activePing;
+            
+            if (!silent) {
+                addLog("Initiation TWR (TX POLL)...", "tx");
+                setTimeout(() => addLog("RX POLL. Traitement ancre...", "info"), 400);
+                setTimeout(() => addLog("TX POLL_ACK...", "tx"), 700);
+                setTimeout(() => addLog("RX ACK. TX RANGE...", "tx"), 1200);
+                setTimeout(() => {
+                    const res = calculateDS_TWR();
+                    addLog(`TWR Complet. Dist brute: ${res.rawDistance.toFixed(2)}m`, "success");
+                    if (Math.abs(res.error) > 0.05) {
+                        addLog(`Attention: Biais d'antenne détecté (${(res.bias*100).toFixed(1)}cm)`, "warn");
+                    }
+                }, 1600);
+            }
+        }
+
+        // --- Event Listeners ---
+        dom.sliderDistance.addEventListener('input', e => { config.distance = parseFloat(e.target.value); updateUI(); });
+        dom.sliderDelayTag.addEventListener('input', e => { config.delayTag = parseFloat(e.target.value); dom.valDelayTag.innerText = config.delayTag.toFixed(2) + " ns"; updateUI(); });
+        dom.sliderDelayAnchor.addEventListener('input', e => { config.delayAnchor = parseFloat(e.target.value); dom.valDelayAnchor.innerText = config.delayAnchor.toFixed(2) + " ns"; updateUI(); });
+        dom.sliderReply1.addEventListener('input', e => { config.reply1 = parseInt(e.target.value); dom.valReply1.innerText = config.reply1 + " µs"; updateUI(); });
+        dom.sliderReply2.addEventListener('input', e => { config.reply2 = parseInt(e.target.value); dom.valReply2.innerText = config.reply2 + " µs"; updateUI(); });
+
+        dom.btnCalibrate.addEventListener('click', () => {
+            const res = calculateDS_TWR();
+            state.offsetCorrectionMeters = res.bias;
+            addLog(`Calibration réussie. Offset réglé sur ${(state.offsetCorrectionMeters*100).toFixed(2)} cm`, "success");
             updateUI();
         });
 
-        dom.sliderDelayTag.addEventListener('input', (e) => {
-            config.delayTag = parseFloat(e.target.value);
-            dom.valDelayTag.innerText = config.delayTag.toFixed(1) + " ns";
+        dom.btnResetCal.addEventListener('click', () => {
+            state.offsetCorrectionMeters = 0;
+            addLog("Offset de calibration réinitialisé à zéro.", "warn");
             updateUI();
         });
 
-        dom.sliderDelayAnchor.addEventListener('input', (e) => {
-            config.delayAnchor = parseFloat(e.target.value);
-            dom.valDelayAnchor.innerText = config.delayAnchor.toFixed(1) + " ns";
-            updateUI();
-        });
-
-        dom.sliderReply1.addEventListener('input', (e) => {
-            config.reply1 = parseInt(e.target.value);
-            dom.valReply1.innerText = config.reply1.toFixed(1) + " µs";
-            updateUI();
-        });
-
-        dom.sliderReply2.addEventListener('input', (e) => {
-            config.reply2 = parseInt(e.target.value);
-            dom.valReply2.innerText = config.reply2.toFixed(1) + " µs";
-            updateUI();
-        });
-
-        dom.btnCalibrate.addEventListener('click', calibrate);
-        dom.btnResetCal.addEventListener('click', resetOffset);
-        dom.btnPing.addEventListener('click', triggerPing);
-
-        // Initial setup and startup logs
-        addLog("Démarrage du simulateur matériel Decawave DW1000.", "success");
-        addLog("Protocole UWB configuré : Double-Sided Two-Way Ranging (IEEE 802.15.4a).", "info");
-        addLog("Prêt pour la calibration ou l'évaluation du temps de vol.", "highlight");
+        dom.btnPing.addEventListener('click', () => triggerPing(false));
         
-        // Simulates typical initial antenna delays on real hardware Makerfabs
-        setTimeout(() => {
-            config.delayTag = 2.65;
-            config.delayAnchor = 2.55;
-            dom.sliderDelayTag.value = 2.65;
-            dom.sliderDelayAnchor.value = 2.55;
-            dom.valDelayTag.innerText = "2.7 ns";
-            dom.valDelayAnchor.innerText = "2.6 ns";
-            addLog("Matériel détecté : Biais d'antenne d'usine non calibré (Biais ~ +80cm).", "warning");
-            updateUI();
-        }, 800);
+        dom.toggleAutoPing.addEventListener('change', e => {
+            state.autoPing = e.target.checked;
+            if (state.autoPing) {
+                addLog("Mode Auto-Ping activé (2s)", "info");
+                state.lastAutoPing = 0; // Trigger immediately
+            } else {
+                addLog("Mode Auto-Ping désactivé", "warn");
+            }
+        });
 
-        // Run updates once on startup
+        // --- Init ---
+        addLog("Démarrage du dashboard matériel UWB.", "success");
         updateUI();
+        
+        // Start animation loop
+        requestAnimationFrame(gameLoop);
+
+        // Simulate factory uncalibrated state
+        setTimeout(() => {
+            config.delayTag = 2.45;
+            config.delayAnchor = 2.10;
+            dom.sliderDelayTag.value = config.delayTag;
+            dom.sliderDelayAnchor.value = config.delayAnchor;
+            dom.valDelayTag.innerText = config.delayTag.toFixed(2) + " ns";
+            dom.valDelayAnchor.innerText = config.delayAnchor.toFixed(2) + " ns";
+            updateUI();
+            addLog("Puces détectées. Délais RF d'usine appliqués.", "info");
+            triggerPing();
+        }, 800);
 
     </script>
 </body>
