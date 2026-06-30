@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparateur Visuel Architectures UWB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .dot {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+        .arena {
+            position: relative;
+            width: 100%;
+            height: 350px;
+            background-color: #111827;
+            border: 2px solid #374151;
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+        .node-server { background-color: #2563eb; color: white; padding: 0.5rem 1rem; border-radius: 0.25rem; font-weight: bold; position: absolute; transform: translate(-50%, -50%); z-index: 5; }
+        .node-tag { background-color: #ec4899; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; position: absolute; transform: translate(-50%, -50%); z-index: 5; }
+        .node-anchor { background-color: #10b981; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; position: absolute; transform: translate(-50%, -50%); z-index: 5; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="text-center mb-6">
+            <h1 class="text-4xl font-bold text-white mb-2 tracking-tight">Animation : Tag vs Ancres</h1>
+            <p class="text-gray-400">Simulation très ralentie pour visualiser le trajet des paquets réseau.</p>
+            <div class="mt-4 flex justify-center gap-4">
+                <button id="btn-start" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded shadow transition-colors">
+                    ▶ Lancer l'Animation
+                </button>
+                <button id="btn-stop" class="px-6 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold rounded shadow transition-colors hidden">
+                    ⏹ Arrêter
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <!-- METHODE 1 : TAG AU CENTRE -->
+            <div class="bg-gray-800 rounded-xl p-4 shadow-xl">
+                <h2 class="text-xl font-bold text-center text-blue-400 mb-2">Méthode 1 : Le Tag pilote</h2>
+                <div class="flex justify-between px-4 mb-2 text-sm text-gray-400">
+                    <span>Pos calculées: <strong id="m1-count" class="text-white">0</strong></span>
+                    <span class="text-blue-300" id="m1-status">En attente</span>
+                </div>
+                
+                <div id="arena1" class="arena">
+                    <!-- Nodes will be positioned via JS -->
+                    <div id="m1-s" class="node-server" style="top: 15%; left: 50%;">Serveur (Wi-Fi)</div>
+                    <div id="m1-t" class="node-tag" style="top: 55%; left: 50%;">Tag</div>
+                    <div id="m1-a1" class="node-anchor" style="top: 85%; left: 20%;">A1</div>
+                    <div id="m1-a2" class="node-anchor" style="top: 85%; left: 80%;">A2</div>
+                    <div id="m1-a3" class="node-anchor" style="top: 55%; left: 85%;">A3</div>
+                </div>
+                <div class="mt-4 text-sm text-gray-400 text-center">
+                    <span class="inline-block w-3 h-3 bg-blue-500 rounded-full mr-1"></span> Wi-Fi (Lent) &nbsp;&nbsp;
+                    <span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-1"></span> UWB (Rapide)
+                </div>
+            </div>
+
+            <!-- METHODE 2 : ANCRES AU CENTRE -->
+            <div class="bg-gray-800 rounded-xl p-4 shadow-xl">
+                <h2 class="text-xl font-bold text-center text-purple-400 mb-2">Méthode 2 : Le Serveur pilote</h2>
+                <div class="flex justify-between px-4 mb-2 text-sm text-gray-400">
+                    <span>Pos calculées: <strong id="m2-count" class="text-white">0</strong></span>
+                    <span class="text-purple-300" id="m2-status">En attente</span>
+                </div>
+                
+                <div id="arena2" class="arena">
+                    <div id="m2-s" class="node-server" style="top: 15%; left: 50%;">Serveur (Wi-Fi)</div>
+                    <div id="m2-t" class="node-tag" style="top: 55%; left: 50%;">Tag</div>
+                    <div id="m2-a1" class="node-anchor" style="top: 85%; left: 20%;">A1</div>
+                    <div id="m2-a2" class="node-anchor" style="top: 85%; left: 80%;">A2</div>
+                    <div id="m2-a3" class="node-anchor" style="top: 55%; left: 85%;">A3</div>
+                </div>
+                <div class="mt-4 text-sm text-gray-400 text-center">
+                    <span class="inline-block w-3 h-3 bg-blue-500 rounded-full mr-1"></span> Wi-Fi (Lent) &nbsp;&nbsp;
+                    <span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-1"></span> UWB (Rapide)
+                </div>
+            </div>
+
+        </div>
+
+        <!-- EXPLICATIONS TECHNIQUES -->
+        <div class="mt-8 bg-gray-800 rounded-xl p-8 shadow-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-white mb-4">Pourquoi une telle différence de vitesse ?</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-gray-900 p-6 rounded-lg border-l-4 border-blue-500">
+                    <h4 class="text-lg font-bold text-blue-400 mb-2 flex items-center">
+                        <span class="inline-block w-4 h-4 bg-blue-500 rounded-full mr-2"></span> 
+                        Le Réseau Wi-Fi (Lent)
+                    </h4>
+                    <p class="text-gray-300 text-sm leading-relaxed mb-2">
+                        Le Wi-Fi est un protocole <strong>complexe et lourd</strong>. Quand le Serveur envoie un message au Tag :
+                    </p>
+                    <ul class="list-disc list-inside text-sm text-gray-400 space-y-1">
+                        <li>Le paquet passe par la couche logicielle de l'ordinateur (Windows).</li>
+                        <li>Il voyage jusqu'au routeur (la box internet ou le point d'accès).</li>
+                        <li>Le routeur gère les collisions, met le paquet dans une file d'attente.</li>
+                        <li>L'ESP32 le reçoit et la couche réseau TCP l'analyse (Handshake, acquittements).</li>
+                    </ul>
+                    <p class="text-gray-400 text-sm mt-3 italic">Bilan : Plusieurs millisecondes (voire dizaines de ms) perdues en routage logiciel.</p>
+                </div>
+
+                <div class="bg-gray-900 p-6 rounded-lg border-l-4 border-emerald-500">
+                    <h4 class="text-lg font-bold text-emerald-400 mb-2 flex items-center">
+                        <span class="inline-block w-4 h-4 bg-emerald-500 rounded-full mr-2"></span> 
+                        Le Réseau UWB (Instantané)
+                    </h4>
+                    <p class="text-gray-300 text-sm leading-relaxed mb-2">
+                        L'UWB (Puce Decawave) est une technologie de <strong>niveau matériel pur (Point-à-Point)</strong> :
+                    </p>
+                    <ul class="list-disc list-inside text-sm text-gray-400 space-y-1">
+                        <li>Il n'y a pas de routeur ou de box au milieu. L'antenne tire tout droit vers l'autre.</li>
+                        <li>Le message est une simple impulsion électrique ultra-courte.</li>
+                        <li>C'est la puce matérielle elle-même qui gère la réception, pas un logiciel !</li>
+                        <li>Les horloges internes traitent l'onde à la vitesse de la lumière.</li>
+                    </ul>
+                    <p class="text-gray-400 text-sm mt-3 italic">Bilan : L'aller-retour complet prend moins d'1 milliseconde, sans aucune surcouche logicielle.</p>
+                </div>
+            </div>
+            
+            <p class="mt-6 text-gray-300 text-center font-semibold bg-gray-900 p-4 rounded-lg border border-gray-700">
+                💡 Conclusion : Le Wi-Fi est génial pour envoyer des données longues distances au Serveur (PC), mais pour le "Temps Réel" local, il faut absolument minimiser son utilisation et laisser les puces UWB travailler toutes seules !
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONSTANTES ---
+        // Temps d'animation visuel en millisecondes (ralenti pour l'oeil humain)
+        const WIFI_TIME = 800; // Le Wi-Fi traverse l'écran lentement
+        const UWB_TIME = 150;  // L'UWB traverse l'écran très vite
+        
+        let isRunning = false;
+        let m1_count = 0;
+        let m2_count = 0;
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Fonction pour animer un point (paquet réseau)
+        function sendPacket(arenaId, fromId, toId, color, duration) {
+            return new Promise(resolve => {
+                const arena = document.getElementById(arenaId);
+                const fromNode = document.getElementById(fromId);
+                const toNode = document.getElementById(toId);
+                
+                const dot = document.createElement('div');
+                dot.className = 'dot';
+                dot.style.backgroundColor = color;
+                dot.style.boxShadow = `0 0 8px ${color}`;
+                
+                // Position initiale
+                dot.style.left = fromNode.style.left;
+                dot.style.top = fromNode.style.top;
+                
+                arena.appendChild(dot);
+                
+                // Forcer le reflow pour que la transition CSS fonctionne
+                dot.getBoundingClientRect();
+                
+                // Animation
+                dot.style.transition = `left ${duration}ms linear, top ${duration}ms linear`;
+                dot.style.left = toNode.style.left;
+                dot.style.top = toNode.style.top;
+                
+                setTimeout(() => {
+                    dot.remove();
+                    resolve();
+                }, duration);
+            });
+        }
+
+        function setStatus(id, text) {
+            document.getElementById(id).innerText = text;
+        }
+
+        // --- METHODE 1 : TAG PILOTE ---
+        async function runMethod1() {
+            while (isRunning) {
+                // 1. Serveur -> Tag (Wi-Fi)
+                setStatus('m1-status', 'Serveur demande position (Wi-Fi)');
+                await sendPacket('arena1', 'm1-s', 'm1-t', '#3b82f6', WIFI_TIME); // Bleu
+                
+                if (!isRunning) break;
+                
+                // 2. Tag -> Ancres (UWB Rapide)
+                setStatus('m1-status', 'Tag mesure distances (UWB)');
+                await sendPacket('arena1', 'm1-t', 'm1-a1', '#10b981', UWB_TIME); // Vert
+                await sendPacket('arena1', 'm1-a1', 'm1-t', '#10b981', UWB_TIME);
+                
+                await sendPacket('arena1', 'm1-t', 'm1-a2', '#10b981', UWB_TIME);
+                await sendPacket('arena1', 'm1-a2', 'm1-t', '#10b981', UWB_TIME);
+                
+                await sendPacket('arena1', 'm1-t', 'm1-a3', '#10b981', UWB_TIME);
+                await sendPacket('arena1', 'm1-a3', 'm1-t', '#10b981', UWB_TIME);
+                
+                if (!isRunning) break;
+
+                // 3. Tag -> Serveur (Wi-Fi)
+                setStatus('m1-status', 'Tag renvoie les 3 distances (Wi-Fi)');
+                await sendPacket('arena1', 'm1-t', 'm1-s', '#3b82f6', WIFI_TIME);
+                
+                m1_count++;
+                document.getElementById('m1-count').innerText = m1_count;
+                setStatus('m1-status', 'Calcul X,Y terminé !');
+                await sleep(100);
+            }
+        }
+
+        // --- METHODE 2 : ANCRES PILOTENT ---
+        async function runMethod2() {
+            while (isRunning) {
+                // --- ANCRE 1 ---
+                setStatus('m2-status', 'Serveur demande à A1 (Wi-Fi)');
+                await sendPacket('arena2', 'm2-s', 'm2-a1', '#3b82f6', WIFI_TIME);
+                
+                if (!isRunning) break;
+                setStatus('m2-status', 'A1 mesure le Tag (UWB)');
+                await sendPacket('arena2', 'm2-a1', 'm2-t', '#10b981', UWB_TIME);
+                await sendPacket('arena2', 'm2-t', 'm2-a1', '#10b981', UWB_TIME);
+                
+                setStatus('m2-status', 'A1 renvoie D1 (Wi-Fi)');
+                await sendPacket('arena2', 'm2-a1', 'm2-s', '#3b82f6', WIFI_TIME);
+                if (!isRunning) break;
+
+                // --- ANCRE 2 ---
+                setStatus('m2-status', 'Serveur demande à A2 (Wi-Fi)');
+                await sendPacket('arena2', 'm2-s', 'm2-a2', '#3b82f6', WIFI_TIME);
+                
+                if (!isRunning) break;
+                setStatus('m2-status', 'A2 mesure le Tag (UWB)');
+                await sendPacket('arena2', 'm2-a2', 'm2-t', '#10b981', UWB_TIME);
+                await sendPacket('arena2', 'm2-t', 'm2-a2', '#10b981', UWB_TIME);
+                
+                setStatus('m2-status', 'A2 renvoie D2 (Wi-Fi)');
+                await sendPacket('arena2', 'm2-a2', 'm2-s', '#3b82f6', WIFI_TIME);
+                if (!isRunning) break;
+
+                // --- ANCRE 3 ---
+                setStatus('m2-status', 'Serveur demande à A3 (Wi-Fi)');
+                await sendPacket('arena2', 'm2-s', 'm2-a3', '#3b82f6', WIFI_TIME);
+                
+                if (!isRunning) break;
+                setStatus('m2-status', 'A3 mesure le Tag (UWB)');
+                await sendPacket('arena2', 'm2-a3', 'm2-t', '#10b981', UWB_TIME);
+                await sendPacket('arena2', 'm2-t', 'm2-a3', '#10b981', UWB_TIME);
+                
+                setStatus('m2-status', 'A3 renvoie D3 (Wi-Fi)');
+                await sendPacket('arena2', 'm2-a3', 'm2-s', '#3b82f6', WIFI_TIME);
+                if (!isRunning) break;
+
+                m2_count++;
+                document.getElementById('m2-count').innerText = m2_count;
+                setStatus('m2-status', 'Calcul X,Y terminé !');
+                await sleep(100);
+            }
+        }
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            isRunning = true;
+            document.getElementById('btn-start').classList.add('hidden');
+            document.getElementById('btn-stop').classList.remove('hidden');
+            
+            m1_count = 0; m2_count = 0;
+            document.getElementById('m1-count').innerText = 0;
+            document.getElementById('m2-count').innerText = 0;
+            
+            runMethod1();
+            runMethod2();
+        });
+
+        document.getElementById('btn-stop').addEventListener('click', () => {
+            isRunning = false;
+            document.getElementById('btn-stop').classList.add('hidden');
+            document.getElementById('btn-start').classList.remove('hidden');
+            setStatus('m1-status', 'Arrêté');
+            setStatus('m2-status', 'Arrêté');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation DS-TWR & Retard d'Antenne</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tailwind Configuration matching Cerema identity -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cerema: {
+                            blue: '#003B5C',     // Dark Blue Cerema
+                            cyan: '#00A3A6',     // Cyan Cerema
+                            orange: '#F29400',   // Orange Cerema
+                            darkbg: '#0B111A',   // Main background
+                            panel: '#141E2B',    // Card background
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0B111A;
+            color: #e2e8f0;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0B111A; }
+        ::-webkit-scrollbar-thumb { background: #003B5C; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00A3A6; }
+
+        /* Sliders styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer;
+            background: #1e293b; border-radius: 2px;
+        }
+        input[type=range]:focus { outline: none; }
+        
+        .slider-cyan::-webkit-slider-thumb { background: #00A3A6; box-shadow: 0 0 10px rgba(0, 163, 166, 0.5); }
+        .slider-orange::-webkit-slider-thumb { background: #F29400; box-shadow: 0 0 10px rgba(242, 148, 0, 0.5); }
+        .slider-blue::-webkit-slider-thumb { background: #3B82F6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+
+        .glass-panel {
+            background: rgba(20, 30, 43, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .wave-glow {
+            box-shadow: 0 0 20px rgba(0, 163, 166, 0.4);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-6 lg:p-8">
+
+    <!-- Header -->
+    <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-cerema-blue pb-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+                <span class="text-cerema-cyan">Protocole DS-TWR</span>
+            </h1>
+            <p class="text-slate-400 mt-1">Analyse du Double-Sided Two-Way Ranging et étalonnage du retard d'antenne (Antenna Delay)</p>
+        </div>
+        <div class="mt-4 md:mt-0 flex gap-4">
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <span class="w-3 h-3 rounded-full bg-cerema-cyan shadow-[0_0_8px_#00A3A6]"></span> Tag (Mobile)
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <span class="w-3 h-3 rounded-full bg-cerema-orange shadow-[0_0_8px_#F29400]"></span> Ancre (Fixe)
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Controls & Virtual Calibration Bench -->
+        <div class="col-span-1 lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- Parameters Panel -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg">
+                <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-cerema-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    Paramètres Physiques et Matériels
+                </h2>
+                
+                <div class="space-y-4">
+                    <!-- Real Distance -->
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-medium text-slate-300">Distance Réelle</label>
+                            <span id="val-distance" class="text-cerema-cyan font-mono text-sm font-bold">5.00 m</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-2">Distance géométrique exacte entre le Tag et l'Ancre.</p>
+                        <input type="range" id="slider-distance" class="slider-cyan" min="0.5" max="25" step="0.05" value="5.0">
+                    </div>
+
+                    <!-- Tag Antenna Delay -->
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-medium text-slate-300">Retard d'Antenne du Tag (Antenna Delay)</label>
+                            <span id="val-delay-tag" class="text-slate-300 font-mono text-sm">0.0 ns</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-2">Retard global de propagation dans le circuit RF du Tag.</p>
+                        <input type="range" id="slider-delay-tag" class="slider-blue" min="0" max="10.0" step="0.01" value="0">
+                    </div>
+
+                    <!-- Anchor Antenna Delay -->
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-medium text-slate-300">Retard d'Antenne de l'Ancre (Antenna Delay)</label>
+                            <span id="val-delay-anchor" class="text-slate-300 font-mono text-sm">0.0 ns</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-2">Retard global de propagation dans le circuit RF de l'Ancre.</p>
+                        <input type="range" id="slider-delay-anchor" class="slider-blue" min="0" max="10.0" step="0.01" value="0">
+                    </div>
+
+                    <!-- Delays of Processing -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <label class="text-xs font-medium text-slate-400">Réponse Ancre (T<sub>reply1</sub>)</label>
+                            </div>
+                            <input type="range" id="slider-reply1" class="slider-orange" min="150" max="800" step="5" value="300">
+                            <span id="val-reply1" class="text-xs font-mono text-slate-400">300.0 µs</span>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <label class="text-xs font-medium text-slate-400">Réponse Tag (T<sub>reply2</sub>)</label>
+                            </div>
+                            <input type="range" id="slider-reply2" class="slider-orange" min="150" max="800" step="5" value="400">
+                            <span id="val-reply2" class="text-xs font-mono text-slate-400">400.0 µs</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calibration Bench -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg">
+                <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-cerema-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                    Banc de Calibration Virtuel
+                </h2>
+                
+                <div class="space-y-4">
+                    <p class="text-xs text-slate-400">
+                        La calibration estime le décalage (biais) en comparant la distance calculée brute avec la distance réelle physique de référence.
+                    </p>
+                    
+                    <div class="grid grid-cols-2 gap-4 bg-cerema-darkbg p-3 rounded-lg border border-slate-800">
+                        <div>
+                            <div class="text-xs text-slate-500 mb-1">Biais Actuel</div>
+                            <div id="display-bias" class="text-xl font-bold font-mono text-red-400">-- cm</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-500 mb-1">Offset Corrigé</div>
+                            <div id="display-offset" class="text-xl font-bold font-mono text-emerald-400">0 cm</div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button id="btn-calibrate" class="flex-1 py-2 px-3 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md transition-colors">
+                            Calibrer (Calculer Biais)
+                        </button>
+                        <button id="btn-reset-cal" class="py-2 px-3 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium border border-slate-700 transition-colors">
+                            Reset Offset
+                        </button>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                        <span>Mode de calibration logicielle :</span>
+                        <span class="font-mono bg-cerema-blue/50 text-cerema-cyan px-2 py-0.5 rounded border border-cerema-blue">y = 1.0 · x - Bias</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Virtual Serial Logs -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg flex-1 flex flex-col min-h-[180px]">
+                <h2 class="text-sm font-semibold text-white mb-2 flex items-center justify-between">
+                    <span>Console UWB (FastAPI Backend)</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </h2>
+                <div id="console-logs" class="flex-1 font-mono text-xs text-slate-400 bg-cerema-darkbg rounded-lg border border-slate-800 p-3 overflow-y-auto max-h-[220px] space-y-1">
+                    <!-- Logs inserted dynamically -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Visualizer & Math calculations -->
+        <div class="col-span-1 lg:col-span-7 flex flex-col gap-6">
+            
+            <!-- Spatial Simulation View -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-4 shadow-lg flex flex-col">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-semibold text-slate-400">Visualisation Spatiale des Impulsions Radio (Vitesse de la lumière c)</span>
+                    <button id="btn-ping" class="text-xs bg-cerema-cyan hover:bg-opacity-80 text-white font-bold py-1 px-2.5 rounded transition-all">
+                        Émettre Ping
+                    </button>
+                </div>
+                <div class="relative h-[110px] w-full rounded-lg bg-cerema-darkbg border border-slate-800 overflow-hidden">
+                    <!-- Physical elements -->
+                    <div id="sim-tag" class="absolute top-1/2 -translate-y-1/2 left-[40px] flex flex-col items-center">
+                        <div class="w-8 h-8 rounded-lg bg-cerema-cyan flex items-center justify-center font-bold text-xs text-white wave-glow">T</div>
+                        <span class="text-[10px] text-cerema-cyan mt-1 font-bold">Tag (Mobile)</span>
+                    </div>
+                    
+                    <div id="sim-anchor" class="absolute top-1/2 -translate-y-1/2 left-[460px] flex flex-col items-center">
+                        <div class="w-8 h-8 rounded-lg bg-cerema-orange flex items-center justify-center font-bold text-xs text-white shadow-md">A1</div>
+                        <span class="text-[10px] text-cerema-orange mt-1 font-bold">Ancre (Fixe)</span>
+                    </div>
+
+                    <!-- Wave animation canvas overlay -->
+                    <canvas id="canvas-spatial" width="600" height="110" class="absolute inset-0 pointer-events-none w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <!-- Sequence Chronogram -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-4 shadow-lg flex-1 flex flex-col min-h-[300px]">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-semibold text-slate-400">Chronogramme de Communication DS-TWR</span>
+                    <span class="text-[10px] text-slate-500 font-mono">Défilement du temps (t) de haut en bas</span>
+                </div>
+                <div class="flex-1 bg-cerema-darkbg rounded-lg border border-slate-800 overflow-hidden relative">
+                    <canvas id="canvas-chrono" class="w-full h-full block" width="600" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- Math and Results Bench -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg grid grid-cols-1 md:grid-cols-12 gap-6">
+                
+                <!-- Metrics -->
+                <div class="md:col-span-5 space-y-4">
+                    <h3 class="text-sm font-bold text-white mb-2 uppercase tracking-wide">Rapport des Distances</h3>
+                    
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-1">
+                            <span class="text-xs text-slate-400">Distance Physique</span>
+                            <span id="res-real" class="font-bold text-white font-mono text-sm">-- m</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-1">
+                            <span class="text-xs text-slate-400 flex items-center gap-1">
+                                Distance Brute
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-400" title="Calcul brut non étalonné"></span>
+                            </span>
+                            <span id="res-raw" class="font-bold text-red-400 font-mono text-sm">-- m</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-800 pb-1">
+                            <span class="text-xs text-slate-400 flex items-center gap-1">
+                                Distance Calibrée
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Avec compensation logicielle"></span>
+                            </span>
+                            <span id="res-calibrated" class="font-bold text-emerald-400 font-mono text-sm">-- m</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-slate-400">Erreur Résiduelle</span>
+                            <span id="res-error" class="font-bold text-white font-mono text-sm">-- cm</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Math Equations -->
+                <div class="md:col-span-7 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6 flex flex-col justify-center">
+                    <h3 class="text-sm font-bold text-white mb-2 uppercase tracking-wide">Formules du Temps de Vol (ToF)</h3>
+                    
+                    <div class="space-y-3 text-xs text-slate-300">
+                        <div class="p-2.5 bg-cerema-darkbg rounded border border-slate-800 font-mono text-center">
+                            T<sub>of</sub> = (T<sub>round1</sub> · T<sub>round2</sub> - T<sub>reply1</sub> · T<sub>reply2</sub>) / (T<sub>round1</sub> + T<sub>round2</sub> + T<sub>reply1</sub> + T<sub>reply2</sub>)
+                        </div>
+                        <div class="leading-relaxed">
+                            Les temps <strong class="text-slate-200">T<sub>round</sub></strong> et <strong class="text-slate-200">T<sub>reply</sub></strong> mesurés par les puces DW1000 incluent l'erreur due aux <strong class="text-cerema-cyan">Retards d'Antenne</strong> :
+                            <div class="mt-1 font-mono text-[10px] text-slate-400 space-y-0.5">
+                                • T<sub>round1_mesure</sub> = T<sub>round1_physique</sub> + Antenna_Delay<sub>Tag</sub><br>
+                                • T<sub>reply1_mesure</sub> = T<sub>reply1_physique</sub> - Antenna_Delay<sub>Anchor</sub>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-slate-500 italic">
+                            Ces décalages asymétriques provoquent un biais constant d'environ +78 cm qui doit être modélisé ou compensé par étalonnage.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // Physical constant: speed of light (m/s)
+        const SPEED_OF_LIGHT = 299792458;
+        
+        // Scale settings for animation
+        const METERS_TO_PIXELS_RATIO = 16; // 1 meter = 16px on canvas representation
+        const MAX_CANVAS_WIDTH = 550;
+        
+        // Time multiplier for sequence scroll animation
+        let simTime = 0;
+        let lastTimestamp = 0;
+        
+        // Active dynamic simulation states
+        let pulseTimer = null;
+        let activePulses = [];
+        let offsetCorrectionMeters = 0;
+
+        // User parameters initial state
+        let config = {
+            distance: 5.0,        // real geometric distance (m)
+            delayTag: 0.0,        // Tag antenna delay (ns)
+            delayAnchor: 0.0,     // Anchor antenna delay (ns)
+            reply1: 300,          // T_reply1 delay (us)
+            reply2: 400,          // T_reply2 delay (us)
+        };
+
+        // DOM elements cache
+        const dom = {
+            sliderDistance: document.getElementById('slider-distance'),
+            valDistance: document.getElementById('val-distance'),
+            sliderDelayTag: document.getElementById('slider-delay-tag'),
+            valDelayTag: document.getElementById('val-delay-tag'),
+            sliderDelayAnchor: document.getElementById('slider-delay-anchor'),
+            valDelayAnchor: document.getElementById('val-delay-anchor'),
+            sliderReply1: document.getElementById('slider-reply1'),
+            valReply1: document.getElementById('val-reply1'),
+            sliderReply2: document.getElementById('slider-reply2'),
+            valReply2: document.getElementById('val-reply2'),
+            displayBias: document.getElementById('display-bias'),
+            displayOffset: document.getElementById('display-offset'),
+            btnCalibrate: document.getElementById('btn-calibrate'),
+            btnResetCal: document.getElementById('btn-reset-cal'),
+            btnPing: document.getElementById('btn-ping'),
+            consoleLogs: document.getElementById('console-logs'),
+            resReal: document.getElementById('res-real'),
+            resRaw: document.getElementById('res-raw'),
+            resCalibrated: document.getElementById('res-calibrated'),
+            resError: document.getElementById('res-error'),
+            simTag: document.getElementById('sim-tag'),
+            simAnchor: document.getElementById('sim-anchor'),
+            canvasSpatial: document.getElementById('canvas-spatial'),
+            canvasChrono: document.getElementById('canvas-chrono')
+        };
+
+        // Error logging and standard tracking
+        function addLog(message, type = 'info') {
+            const timeStr = new Date().toISOString().slice(11, 19);
+            const item = document.createElement('div');
+            let color = 'text-slate-400';
+            if (type === 'success') color = 'text-emerald-400';
+            else if (type === 'warning') color = 'text-cerema-orange';
+            else if (type === 'error') color = 'text-red-400';
+            else if (type === 'highlight') color = 'text-cerema-cyan';
+            
+            item.className = `${color} leading-5`;
+            item.innerHTML = `<span class="text-slate-600">[${timeStr}]</span> ${message}`;
+            dom.consoleLogs.appendChild(item);
+            dom.consoleLogs.scrollTop = dom.consoleLogs.scrollHeight;
+            
+            // Limit logging rows
+            while (dom.consoleLogs.childNodes.length > 50) {
+                dom.consoleLogs.removeChild(dom.consoleLogs.firstChild);
+            }
+        }
+
+        // Mathematical conversion utilities
+        function nsToMeters(ns) {
+            return (ns * 1e-9) * SPEED_OF_LIGHT;
+        }
+
+        function metersToNs(m) {
+            return (m / SPEED_OF_LIGHT) * 1e9;
+        }
+
+        // Physics Calculation Core Engine
+        function calculateTof() {
+            try {
+                // 1. Calculate physical time-of-flight in seconds
+                const tofPhysical = config.distance / SPEED_OF_LIGHT;
+                
+                // Convert micro and nano parameters to standard seconds
+                const delayTagSec = config.delayTag * 1e-9;
+                const delayAnchorSec = config.delayAnchor * 1e-9;
+                const reply1Sec = config.reply1 * 1e-6;
+                const reply2Sec = config.reply2 * 1e-6;
+                
+                // 2. Models absolute system timestamps including hardware Delays
+                // T0 = POLL TX time by Tag (real emission in the air)
+                const t_sp_physical = 0; 
+                // The Tag registers the timestamp earlier due to its internal TX delay
+                const t_sp_measured = t_sp_physical - (delayTagSec / 2);
+                
+                // POLL arrives at Anchor after time-of-flight propagation
+                const t_rp_physical = t_sp_physical + tofPhysical;
+                // Anchor registers the timestamp later due to its internal RX delay
+                const t_rp_measured = t_rp_physical + (delayAnchorSec / 2);
+                
+                // Anchor prepares POLL_ACK response after Processing delay (reply1)
+                const t_sr_physical = t_rp_physical + reply1Sec;
+                // Anchor registers TX earlier
+                const t_sr_measured = t_sr_physical - (delayAnchorSec / 2);
+                
+                // POLL_ACK arrives at Tag
+                const t_rr_physical = t_sr_physical + tofPhysical;
+                // Tag registers RX later
+                const t_rr_measured = t_rr_physical + (delayTagSec / 2);
+                
+                // Tag prepares RANGE response after processing delay (reply2)
+                const t_sf_physical = t_rr_physical + reply2Sec;
+                // Tag registers TX earlier
+                const t_sf_measured = t_sf_physical - (delayTagSec / 2);
+                
+                // RANGE arrives at Anchor
+                const t_rf_physical = t_sf_physical + tofPhysical;
+                // Anchor registers RX later
+                const t_rf_measured = t_rf_physical + (delayAnchorSec / 2);
+
+                // 3. Subtract measurements to get duration deltas as calculated by hardware chips
+                const T_round1 = t_rr_measured - t_sp_measured;
+                const T_reply1 = t_sr_measured - t_rp_measured;
+                const T_reply2 = t_sf_measured - t_rr_measured;
+                const T_round2 = t_rf_measured - t_sr_measured;
+
+                // 4. Applies standard symmetric DS-TWR equation (Decawave recommendation)
+                const denom = T_round1 + T_round2 + T_reply1 + T_reply2;
+                let calculatedTof = 0;
+                if (denom > 0) {
+                    calculatedTof = ((T_round1 * T_round2) - (T_reply1 * T_reply2)) / denom;
+                }
+                
+                // Compute corresponding raw distance
+                const distanceRaw = calculatedTof * SPEED_OF_LIGHT;
+                const distanceCalibrated = distanceRaw - offsetCorrectionMeters;
+                const error = distanceCalibrated - config.distance;
+
+                return {
+                    realDistance: config.distance,
+                    rawDistance: distanceRaw,
+                    calibratedDistance: distanceCalibrated,
+                    bias: distanceRaw - config.distance,
+                    error: error,
+                    T_round1, T_reply1, T_reply2, T_round2
+                };
+            } catch (err) {
+                console.error("Error calculating DS-TWR logic:", err);
+                return { realDistance: 0, rawDistance: 0, calibratedDistance: 0, bias: 0, error: 0 };
+            }
+        }
+
+        // Update display text and colors
+        function updateUI() {
+            const results = calculateTof();
+            
+            dom.resReal.innerText = results.realDistance.toFixed(2) + " m";
+            dom.resRaw.innerText = results.rawDistance.toFixed(2) + " m";
+            dom.resCalibrated.innerText = results.calibratedDistance.toFixed(2) + " m";
+            
+            const errCm = results.error * 100;
+            dom.resError.innerText = (errCm >= 0 ? "+" : "") + errCm.toFixed(1) + " cm";
+            
+            if (Math.abs(errCm) < 3.0) {
+                dom.resError.className = "font-bold text-emerald-400 font-mono text-sm";
+            } else if (Math.abs(errCm) < 15.0) {
+                dom.resError.className = "font-bold text-cerema-orange font-mono text-sm";
+            } else {
+                dom.resError.className = "font-bold text-red-400 font-mono text-sm";
+            }
+
+            const biasCm = results.bias * 100;
+            dom.displayBias.innerText = (biasCm >= 0 ? "+" : "") + biasCm.toFixed(1) + " cm";
+            dom.displayOffset.innerText = (offsetCorrectionMeters * -100).toFixed(1) + " cm";
+
+            // Physical element scaling positions
+            const tagLeft = 40;
+            const newAnchorLeft = Math.max(120, Math.min(MAX_CANVAS_WIDTH, tagLeft + (config.distance * METERS_TO_PIXELS_RATIO)));
+            dom.simAnchor.style.left = newAnchorLeft + "px";
+
+            // Trigger canvas draw updates
+            drawSpatialView();
+            drawChronoView(results);
+        }
+
+        // Calibration Action
+        function calibrate() {
+            const results = calculateTof();
+            offsetCorrectionMeters = results.bias;
+            addLog(`Calibration lancée. Biais de distance détecté : ${(results.bias * 100).toFixed(2)} cm.`, 'success');
+            addLog(`Retard d'antenne corrigé logiciellement dans le dashboard.`, 'info');
+            updateUI();
+        }
+
+        // Reset offset calibration
+        function resetOffset() {
+            offsetCorrectionMeters = 0;
+            addLog("Offset de calibration réinitialisé.", "warning");
+            updateUI();
+        }
+
+        // Draw dynamic signal propagation elements
+        function drawSpatialView() {
+            const canvas = dom.canvasSpatial;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const tagX = 40 + 16; // centered
+            const anchorX = Math.max(120, Math.min(MAX_CANVAS_WIDTH, 40 + (config.distance * METERS_TO_PIXELS_RATIO))) + 16;
+            const y = canvas.height / 2;
+
+            // Draw link line
+            ctx.strokeStyle = 'rgba(30, 41, 59, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(tagX, y);
+            ctx.lineTo(anchorX, y);
+            ctx.stroke();
+
+            // Update and draw active pulses
+            const now = Date.now();
+            activePulses = activePulses.filter(p => {
+                const elapsed = now - p.startTime;
+                const duration = 1200; // ms for round trip
+                if (elapsed > duration) return false;
+
+                const progress = elapsed / duration;
+                let currentX;
+                
+                if (p.type === 'POLL') {
+                    // Tag -> Anchor (0.0 to 0.3 progress range)
+                    const p1 = Math.min(1.0, progress / 0.3);
+                    currentX = tagX + (anchorX - tagX) * p1;
+                    if (progress <= 0.3) drawRadioWave(ctx, currentX, y, '#00A3A6', 1);
+                } else if (p.type === 'POLL_ACK') {
+                    // Anchor -> Tag (0.35 to 0.65 progress range)
+                    if (progress > 0.35 && progress <= 0.65) {
+                        const p2 = Math.min(1.0, (progress - 0.35) / 0.3);
+                        currentX = anchorX - (anchorX - tagX) * p2;
+                        drawRadioWave(ctx, currentX, y, '#F29400', -1);
+                    }
+                } else if (p.type === 'RANGE') {
+                    // Tag -> Anchor (0.7 to 1.0 progress range)
+                    if (progress > 0.7) {
+                        const p3 = Math.min(1.0, (progress - 0.7) / 0.3);
+                        currentX = tagX + (anchorX - tagX) * p3;
+                        drawRadioWave(ctx, currentX, y, '#3B82F6', 1);
+                    }
+                }
+                return true;
+            });
+
+            if (activePulses.length > 0) {
+                requestAnimationFrame(drawSpatialView);
+            }
+        }
+
+        function drawRadioWave(ctx, x, y, color, direction) {
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8;
+            
+            // Draw standard crescent wave
+            ctx.beginPath();
+            if (direction > 0) {
+                ctx.arc(x - 5, y, 15, -Math.PI/3, Math.PI/3);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.lineWidth = 1.5;
+                ctx.arc(x - 10, y, 8, -Math.PI/3, Math.PI/3);
+                ctx.stroke();
+            } else {
+                ctx.arc(x + 5, y, 15, 2*Math.PI/3, 4*Math.PI/3);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.lineWidth = 1.5;
+                ctx.arc(x + 10, y, 8, 2*Math.PI/3, 4*Math.PI/3);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function triggerPing() {
+            activePulses = [
+                { type: 'POLL', startTime: Date.now() },
+                { type: 'POLL_ACK', startTime: Date.now() },
+                { type: 'RANGE', startTime: Date.now() }
+            ];
+            
+            addLog("Emission d'une rafale de mesure DS-TWR...", "highlight");
+            setTimeout(() => addLog("Envoi message UWB POLL (Tag -> Ancre 1)", "info"), 50);
+            setTimeout(() => addLog("Réception POLL, traitement local...", "info"), 200);
+            setTimeout(() => addLog("Renvoi message UWB POLL_ACK (Ancre 1 -> Tag)", "info"), 420);
+            setTimeout(() => addLog("Réception POLL_ACK, renvoi message UWB RANGE (Tag -> Ancre 1)", "info"), 840);
+            setTimeout(() => {
+                const results = calculateTof();
+                addLog(`Ranging complété. ToF brut calculé: ${(results.rawDistance / SPEED_OF_LIGHT * 1e9).toFixed(2)} ns. Distance brute: ${results.rawDistance.toFixed(2)} m.`, "success");
+                if (Math.abs(results.error) > 0.05) {
+                    addLog(`Biais détecté : ${(results.error * 100).toFixed(1)} cm. Étalonnez le système pour éliminer le retard d'antenne !`, "warning");
+                }
+            }, 1150);
+
+            requestAnimationFrame(drawSpatialView);
+        }
+
+        // Draw Interactive sequence chronogram
+        function drawChronoView(results) {
+            const canvas = dom.canvasChrono;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const paddingLeft = 100;
+            const paddingRight = 100;
+            const w = canvas.width - paddingLeft - paddingRight;
+            const h = canvas.height;
+
+            const tX = paddingLeft;
+            const aX = canvas.width - paddingRight;
+
+            // 1. Draw timelines
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(tX, 20); ctx.lineTo(tX, h - 20); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(aX, 20); ctx.lineTo(aX, h - 20); ctx.stroke();
+
+            // Timeline labels
+            ctx.fillStyle = '#00A3A6';
+            ctx.font = 'bold 12px Inter, sans-serif';
+            ctx.fillText("Tag", tX - 35, 15);
+            ctx.fillStyle = '#F29400';
+            ctx.fillText("Ancre 1", aX - 10, 15);
+
+            // Time coordinates on sequence chart
+            const t_poll_tx = 40;
+            const t_poll_rx = 90;
+            const t_ack_tx = 160;
+            const t_ack_rx = 210;
+            const t_range_tx = 250;
+            const t_range_rx = 290;
+
+            // 2. Draw Radio Message lines (oblique arrows)
+            ctx.lineWidth = 2.5;
+            ctx.shadowBlur = 4;
+            
+            // POLL (Tag -> Anchor)
+            ctx.strokeStyle = '#00A3A6';
+            ctx.shadowColor = '#00A3A6';
+            drawArrow(ctx, tX, t_poll_tx, aX, t_poll_rx);
+            ctx.fillStyle = '#00A3A6';
+            ctx.font = 'bold 10px JetBrains Mono, monospace';
+            ctx.fillText("POLL", tX + 40, t_poll_tx + 20);
+
+            // POLL_ACK (Anchor -> Tag)
+            ctx.strokeStyle = '#F29400';
+            ctx.shadowColor = '#F29400';
+            drawArrow(ctx, aX, t_ack_tx, tX, t_ack_rx);
+            ctx.fillStyle = '#F29400';
+            ctx.fillText("POLL_ACK", tX + 40, t_ack_tx + 20);
+
+            // RANGE (Tag -> Anchor)
+            ctx.strokeStyle = '#3B82F6';
+            ctx.shadowColor = '#3B82F6';
+            drawArrow(ctx, tX, t_range_tx, aX, t_range_rx);
+            ctx.fillStyle = '#3B82F6';
+            ctx.fillText("RANGE", tX + 40, t_range_tx + 20);
+            
+            ctx.shadowBlur = 0; // reset
+
+            // 3. Time labels (timestamps)
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px JetBrains Mono, monospace';
+            
+            // Show TX/RX Timestamps with or without Antenna Delay
+            const offsetTag = config.delayTag > 0 ? ` (+${config.delayTag.toFixed(1)}ns)` : "";
+            const offsetAnchor = config.delayAnchor > 0 ? ` (+${config.delayAnchor.toFixed(1)}ns)` : "";
+
+            ctx.fillText(`T_sp (TX POLL)${offsetTag}`, tX - 90, t_poll_tx + 4);
+            ctx.fillText(`T_rp (RX POLL)${offsetAnchor}`, aX + 12, t_poll_rx + 4);
+            ctx.fillText(`T_sr (TX ACK)${offsetAnchor}`, aX + 12, t_ack_tx + 4);
+            ctx.fillText(`T_rr (RX ACK)${offsetTag}`, tX - 90, t_ack_rx + 4);
+            ctx.fillText(`T_sf (TX RANGE)${offsetTag}`, tX - 90, t_range_tx + 4);
+            ctx.fillText(`T_rf (RX RANGE)${offsetAnchor}`, aX + 12, t_range_rx + 4);
+
+            // 4. Processing delays bracket lines
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+            ctx.lineWidth = 1.5;
+            
+            // T_reply1 bracket (Anchor)
+            ctx.beginPath();
+            ctx.moveTo(aX - 8, t_poll_rx);
+            ctx.lineTo(aX - 25, t_poll_rx);
+            ctx.lineTo(aX - 25, t_ack_tx);
+            ctx.lineTo(aX - 8, t_ack_tx);
+            ctx.stroke();
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.fillText(`T_reply1 = ${config.reply1} µs`, aX - 110, (t_poll_rx + t_ack_tx) / 2 + 4);
+
+            // T_reply2 bracket (Tag)
+            ctx.beginPath();
+            ctx.moveTo(tX + 8, t_ack_rx);
+            ctx.lineTo(tX + 25, t_ack_rx);
+            ctx.lineTo(tX + 25, t_range_tx);
+            ctx.lineTo(tX + 8, t_range_tx);
+            ctx.stroke();
+            ctx.fillText(`T_reply2 = ${config.reply2} µs`, tX + 35, (t_ack_rx + t_range_tx) / 2 + 4);
+        }
+
+        function drawArrow(ctx, fromX, fromY, toX, toY) {
+            const headlen = 10; // length of head in pixels
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        // --- Event Listeners and input bindings ---
+        dom.sliderDistance.addEventListener('input', (e) => {
+            config.distance = parseFloat(e.target.value);
+            dom.valDistance.innerText = config.distance.toFixed(2) + " m";
+            updateUI();
+        });
+
+        dom.sliderDelayTag.addEventListener('input', (e) => {
+            config.delayTag = parseFloat(e.target.value);
+            dom.valDelayTag.innerText = config.delayTag.toFixed(1) + " ns";
+            updateUI();
+        });
+
+        dom.sliderDelayAnchor.addEventListener('input', (e) => {
+            config.delayAnchor = parseFloat(e.target.value);
+            dom.valDelayAnchor.innerText = config.delayAnchor.toFixed(1) + " ns";
+            updateUI();
+        });
+
+        dom.sliderReply1.addEventListener('input', (e) => {
+            config.reply1 = parseInt(e.target.value);
+            dom.valReply1.innerText = config.reply1.toFixed(1) + " µs";
+            updateUI();
+        });
+
+        dom.sliderReply2.addEventListener('input', (e) => {
+            config.reply2 = parseInt(e.target.value);
+            dom.valReply2.innerText = config.reply2.toFixed(1) + " µs";
+            updateUI();
+        });
+
+        dom.btnCalibrate.addEventListener('click', calibrate);
+        dom.btnResetCal.addEventListener('click', resetOffset);
+        dom.btnPing.addEventListener('click', triggerPing);
+
+        // Initial setup and startup logs
+        addLog("Démarrage du simulateur matériel Decawave DW1000.", "success");
+        addLog("Protocole UWB configuré : Double-Sided Two-Way Ranging (IEEE 802.15.4a).", "info");
+        addLog("Prêt pour la calibration ou l'évaluation du temps de vol.", "highlight");
+        
+        // Simulates typical initial antenna delays on real hardware Makerfabs
+        setTimeout(() => {
+            config.delayTag = 2.65;
+            config.delayAnchor = 2.55;
+            dom.sliderDelayTag.value = 2.65;
+            dom.sliderDelayAnchor.value = 2.55;
+            dom.valDelayTag.innerText = "2.7 ns";
+            dom.valDelayAnchor.innerText = "2.6 ns";
+            addLog("Matériel détecté : Biais d'antenne d'usine non calibré (Biais ~ +80cm).", "warning");
+            updateUI();
+        }, 800);
+
+        // Run updates once on startup
+        updateUI();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation Architecture Hybride (TCP/UDP)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e2e;
+            color: #cdd6f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #89b4fa;
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            max-width: 800px;
+            text-align: center;
+            margin-bottom: 40px;
+            color: #a6adc8;
+            line-height: 1.5;
+        }
+
+        .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 800px;
+            position: relative;
+        }
+
+        .node {
+            background-color: #313244;
+            border: 2px solid #45475a;
+            border-radius: 12px;
+            padding: 20px;
+            width: 220px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .node h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #f38ba8;
+        }
+
+        .pc-node h2 { color: #89b4fa; }
+
+        .status {
+            margin-top: 15px;
+            padding: 8px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .status.idle { background-color: #45475a; color: #a6adc8; }
+        .status.active { background-color: #a6e3a1; color: #11111b; }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        button:active { transform: scale(0.95); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-start { background-color: #a6e3a1; color: #11111b; }
+        .btn-stop { background-color: #f38ba8; color: #11111b; }
+
+        .network-area {
+            position: absolute;
+            top: 50%;
+            left: 260px;
+            right: 260px;
+            height: 100px;
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+
+        .line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            border-top: 2px dashed #45475a;
+        }
+
+        .line-tcp { top: 30px; }
+        .line-udp { top: 70px; }
+
+        .line-label {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            color: #bac2de;
+            background: #1e1e2e;
+            padding: 0 10px;
+        }
+
+        /* Packets */
+        .packet {
+            position: absolute;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #11111b;
+            white-space: nowrap;
+            opacity: 0;
+        }
+
+        .packet-tcp {
+            background-color: #89b4fa;
+            top: 15px;
+            animation: moveTCP 1s forwards cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .packet-udp {
+            background-color: #fab387;
+            top: 55px;
+            animation: moveUDP 0.6s linear forwards;
+        }
+
+        @keyframes moveTCP {
+            0% { left: 0; opacity: 1; transform: scale(0.8); }
+            50% { transform: scale(1.1); }
+            95% { opacity: 1; }
+            100% { left: calc(100% - 100px); opacity: 0; transform: scale(0.8); }
+        }
+
+        @keyframes moveUDP {
+            0% { right: 0; opacity: 1; }
+            95% { opacity: 1; }
+            100% { right: calc(100% - 100px); opacity: 0; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Comment communique le Tag Hybride ?</h1>
+    <div class="description">
+        <p><strong>Règle d'or :</strong> Si le PC ne demande rien, le Tag reste totalement silencieux (0 trame réseau).</p>
+        <p>Cliquez sur <strong>Démarrer</strong> pour envoyer la requête TCP. Le Tag bouclera alors à l'infini en UDP.</p>
+    </div>
+
+    <div class="container">
+        <!-- NODE PC -->
+        <div class="node pc-node">
+            <h2>💻 Serveur Python</h2>
+            <div class="status idle" id="pcStatus">Mode: Attente</div>
+            
+            <div class="controls">
+                <button class="btn-start" id="btnStart" onclick="sendTCPStart()">1. Démarrer Suivi (TCP)</button>
+                <button class="btn-stop" id="btnStop" onclick="sendTCPStop()" disabled>3. Arrêter Suivi (TCP)</button>
+            </div>
+        </div>
+
+        <!-- ZONE RESEAU -->
+        <div class="network-area" id="networkArea">
+            <div class="line line-tcp">
+                <div class="line-label">Connexion TCP (Fiable / Commandes)</div>
+            </div>
+            <div class="line line-udp">
+                <div class="line-label">Flux UDP (Rapide / Données)</div>
+            </div>
+        </div>
+
+        <!-- NODE TAG -->
+        <div class="node tag-node">
+            <h2>📡 Tag Arduino</h2>
+            <div class="status idle" id="tagStatus">Repos (Silencieux)</div>
+        </div>
+    </div>
+
+    <script>
+        let burstInterval = null;
+        let isBursting = false;
+
+        const networkArea = document.getElementById('networkArea');
+        const pcStatus = document.getElementById('pcStatus');
+        const tagStatus = document.getElementById('tagStatus');
+        const btnStart = document.getElementById('btnStart');
+        const btnStop = document.getElementById('btnStop');
+
+        function createPacket(type, text) {
+            const pkt = document.createElement('div');
+            pkt.className = `packet packet-${type}`;
+            pkt.innerText = text;
+            networkArea.appendChild(pkt);
+            
+            // Cleanup DOM after animation
+            setTimeout(() => {
+                if(pkt.parentNode) pkt.parentNode.removeChild(pkt);
+            }, type === 'tcp' ? 1000 : 600);
+        }
+
+        function sendTCPStart() {
+            if(isBursting) return;
+            
+            btnStart.disabled = true;
+            pcStatus.innerText = "Envoi CMD_CYCLE...";
+            
+            // Envoi de la commande TCP
+            createPacket('tcp', 'TCP: CMD_CYCLE');
+
+            // Arrivée au Tag (1s plus tard)
+            setTimeout(() => {
+                isBursting = true;
+                btnStop.disabled = false;
+                pcStatus.innerText = "Mode: Suivi Actif (Écoute UDP)";
+                tagStatus.className = "status active";
+                tagStatus.innerHTML = "🔥 Mode Mitraillette<br>(Boucle Infinie UDP)";
+                
+                startUDPBurst();
+            }, 1000);
+        }
+
+        function sendTCPStop() {
+            if(!isBursting) return;
+            
+            btnStop.disabled = true;
+            pcStatus.innerText = "Envoi CMD_STOP...";
+
+            // Envoi de la commande TCP
+            createPacket('tcp', 'TCP: CMD_STOP');
+
+            // Arrivée au Tag (1s plus tard)
+            setTimeout(() => {
+                isBursting = false;
+                btnStart.disabled = false;
+                pcStatus.innerText = "Mode: Attente";
+                pcStatus.className = "status idle";
+                
+                tagStatus.className = "status idle";
+                tagStatus.innerText = "Repos (Silencieux)";
+                
+                stopUDPBurst();
+            }, 1000);
+        }
+
+        function startUDPBurst() {
+            // Le tag génère des paquets UDP toutes les 150ms pour la simulation visuelle
+            burstInterval = setInterval(() => {
+                createPacket('udp', 'UDP: CYCLE_DONE');
+            }, 150);
+        }
+
+        function stopUDPBurst() {
+            clearInterval(burstInterval);
+        }
+    </script>
+
+</body>
+</html>

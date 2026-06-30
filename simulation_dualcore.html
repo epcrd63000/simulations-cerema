@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation Architecture Dual-Core ESP32</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        h1 {
+            color: #38bdf8;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        
+        p.subtitle {
+            color: #94a3b8;
+            text-align: center;
+            max-width: 600px;
+            margin-bottom: 30px;
+        }
+
+        .system-container {
+            display: flex;
+            flex-direction: row;
+            gap: 40px;
+            align-items: center;
+            position: relative;
+        }
+
+        /* --- ESP32 CHIP --- */
+        .esp32-chip {
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 12px;
+            padding: 30px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.5);
+            width: 450px;
+        }
+        .esp32-label {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: #0f172a;
+            padding: 0 10px;
+            font-weight: 800;
+            color: #fbbf24;
+            letter-spacing: 2px;
+        }
+
+        /* --- CORES --- */
+        .cores-wrapper {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .core {
+            background: #334155;
+            border-radius: 8px;
+            padding: 15px;
+            width: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .core-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .core-task {
+            width: 100%;
+            background: #475569;
+            border-radius: 6px;
+            padding: 10px 0;
+            text-align: center;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #64748b;
+        }
+
+        .task-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: rgba(255,255,255,0.2);
+            width: 0%;
+            z-index: 1;
+        }
+        
+        .task-label {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* COULEURS DES CORES */
+        #core1 { border-top: 4px solid #ef4444; } /* UWB = Rouge */
+        #core1 .core-title { color: #ef4444; }
+        #core1 .task-progress { background: rgba(239, 68, 68, 0.3); }
+
+        #core0 { border-top: 4px solid #3b82f6; } /* Network = Bleu */
+        #core0 .core-title { color: #3b82f6; }
+        #core0 .task-progress { background: rgba(59, 130, 246, 0.3); }
+
+        /* --- QUEUE IPC --- */
+        .queue-container {
+            background: #0f172a;
+            border: 1px dashed #64748b;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 10px;
+            position: relative;
+        }
+        .queue-title {
+            font-size: 0.8rem;
+            color: #a3e635;
+            margin-bottom: 8px;
+            font-family: monospace;
+        }
+        .queue-slots {
+            display: flex;
+            gap: 5px;
+        }
+        .queue-slot {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            background: #1e293b;
+            border: 1px solid #475569;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: #fff;
+            transition: all 0.2s;
+        }
+        .queue-slot.filled {
+            background: #a3e635;
+            color: #000;
+            font-weight: bold;
+            box-shadow: 0 0 10px #a3e635;
+        }
+
+        /* --- EXTERNAL COMPONENTS --- */
+        .external-comp {
+            background: #1e293b;
+            border: 2px solid #64748b;
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            position: relative;
+            z-index: 10;
+        }
+
+        .dw3000 { border-color: #ef4444; color: #ef4444; }
+        .wifi-router { border-color: #3b82f6; color: #3b82f6; }
+
+        .ext-icon { font-size: 2rem; margin-bottom: 5px; }
+
+        /* --- DATA PACKETS ANIMATION --- */
+        .packet {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            z-index: 20;
+            display: none;
+        }
+
+        .packet.spi { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+        .packet.udp { background: #3b82f6; box-shadow: 0 0 8px #3b82f6; }
+
+        /* --- STATS --- */
+        .stats {
+            margin-top: 40px;
+            display: flex;
+            gap: 40px;
+        }
+        .stat-box {
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 15px 30px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-val {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #a3e635;
+            font-family: monospace;
+        }
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* --- UI CONTROLS --- */
+        .controls {
+            margin-top: 20px;
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background: #2563eb; }
+        select {
+            background: #0f172a;
+            color: white;
+            border: 1px solid #475569;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        /* LIGNES DE CONNEXION */
+        .connection-line {
+            position: absolute;
+            z-index: 0;
+            background-image: linear-gradient(to right, rgba(255,255,255,0.2) 50%, transparent 50%);
+            background-size: 10px 2px;
+            height: 2px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Simulation : Dual-Core ESP32</h1>
+    <p class="subtitle">Observez comment FreeRTOS permet d'isoler la puce UWB du réseau Wi-Fi grâce à la file d'attente asynchrone (xQueue).</p>
+
+    <div class="controls">
+        <label>Architecture :</label>
+        <select id="archSelect">
+            <option value="dual">Dual-Core (Nouveau, 12 Hz)</option>
+            <option value="mono">Mono-Core (Ancien, 7.5 Hz)</option>
+        </select>
+        <button id="btnToggle">Démarrer Simulation</button>
+    </div>
+
+    <div class="system-container" style="margin-top: 40px;">
+        
+        <!-- Puce DW1000 -->
+        <div class="external-comp dw3000" id="dw3000Node">
+            <div class="ext-icon">📡</div>
+            DW1000
+            <div style="font-size:0.6rem; color:#94a3b8; margin-top:5px;">Temps Vol (TWR)</div>
+        </div>
+
+        <div class="connection-line" id="lineSPI" style="width: 80px; left: 120px; top: 50%;"></div>
+
+        <!-- ESP32 -->
+        <div class="esp32-chip" id="espNode">
+            <div class="esp32-label">ESP32-WROOM</div>
+
+            <div class="cores-wrapper">
+                <!-- CORE 1 -->
+                <div class="core" id="core1">
+                    <div class="core-title">Core 1 (APP)</div>
+                    <div class="core-task" id="taskUWB">
+                        <div class="task-progress" id="progUWB"></div>
+                        <span class="task-label" id="labelUWB">Attente...</span>
+                    </div>
+                    <div style="font-size:0.7rem; color:#94a3b8; margin-top:10px; text-align:center;">Boucle UWB pure<br>(Sans délai réseau)</div>
+                </div>
+
+                <!-- CORE 0 -->
+                <div class="core" id="core0">
+                    <div class="core-title">Core 0 (PRO)</div>
+                    <div class="core-task" id="taskNet">
+                        <div class="task-progress" id="progNet"></div>
+                        <span class="task-label" id="labelNet">Attente...</span>
+                    </div>
+                    <div style="font-size:0.7rem; color:#94a3b8; margin-top:10px; text-align:center;">Wi-Fi & UDP<br>Background Tasks</div>
+                </div>
+            </div>
+
+            <!-- xQueue -->
+            <div class="queue-container" id="queueContainer">
+                <div class="queue-title">xQueue (FreeRTOS IPC)</div>
+                <div class="queue-slots">
+                    <div class="queue-slot" id="q0"></div>
+                    <div class="queue-slot" id="q1"></div>
+                    <div class="queue-slot" id="q2"></div>
+                    <div class="queue-slot" id="q3"></div>
+                    <div class="queue-slot" id="q4"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="connection-line" id="lineWIFI" style="width: 80px; left: 650px; top: 50%;"></div>
+
+        <!-- Réseau Local -->
+        <div class="external-comp wifi-router" id="wifiNode">
+            <div class="ext-icon">🌐</div>
+            Serveur PC
+            <div style="font-size:0.6rem; color:#94a3b8; margin-top:5px;">Python Backend</div>
+        </div>
+
+        <!-- Particules -->
+        <div class="packet spi" id="pktSPI"></div>
+        <div class="packet udp" id="pktUDP"></div>
+
+    </div>
+
+    <div class="stats">
+        <div class="stat-box">
+            <div class="stat-val" id="valFreq">0.0</div>
+            <div class="stat-label">Hz (Cycles/sec)</div>
+        </div>
+    </div>
+
+    <script>
+        const btnToggle = document.getElementById('btnToggle');
+        const archSelect = document.getElementById('archSelect');
+        
+        // Progress Bars
+        const progUWB = document.getElementById('progUWB');
+        const labelUWB = document.getElementById('labelUWB');
+        const progNet = document.getElementById('progNet');
+        const labelNet = document.getElementById('labelNet');
+
+        // Queue
+        const slots = [
+            document.getElementById('q0'),
+            document.getElementById('q1'),
+            document.getElementById('q2'),
+            document.getElementById('q3'),
+            document.getElementById('q4')
+        ];
+
+        // Stats
+        const valFreq = document.getElementById('valFreq');
+        const valNoise = document.getElementById('valNoise');
+
+        // Packets
+        const pktSPI = document.getElementById('pktSPI');
+        const pktUDP = document.getElementById('pktUDP');
+        
+        // Positions (approx pour l'animation)
+        const p1 = {x: 100, y: 320}; // DW1000
+        const p2 = {x: 280, y: 320}; // Core 1
+        const p3 = {x: 520, y: 320}; // Core 0
+        const p4 = {x: 750, y: 320}; // Serveur
+
+        let isRunning = false;
+        let isDual = true;
+
+        let queueCount = 0;
+        let totalCycles = 0;
+        let startTime = 0;
+
+        function updateQueueUI() {
+            for(let i=0; i<5; i++) {
+                if(i < queueCount) {
+                    slots[i].classList.add('filled');
+                    slots[i].innerText = "D";
+                } else {
+                    slots[i].classList.remove('filled');
+                    slots[i].innerText = "";
+                }
+            }
+        }
+
+        function animatePacket(el, start, end, duration, color, callback) {
+            el.style.display = 'block';
+            el.style.left = start.x + 'px';
+            el.style.top = start.y + 'px';
+            el.style.background = color;
+            el.style.boxShadow = `0 0 10px ${color}`;
+
+            const startT = performance.now();
+            function step(t) {
+                let progress = (t - startT) / duration;
+                if(progress > 1) progress = 1;
+                
+                let curX = start.x + (end.x - start.x) * progress;
+                let curY = start.y + (end.y - start.y) * progress;
+                
+                el.style.left = curX + 'px';
+                el.style.top = curY + 'px';
+
+                if(progress < 1) {
+                    requestAnimationFrame(step);
+                } else {
+                    el.style.display = 'none';
+                    if(callback) callback();
+                }
+            }
+            requestAnimationFrame(step);
+        }
+
+        async function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Boucle Core 1 (UWB)
+        async function runCore1() {
+            let anchorIdx = 1;
+            while(isRunning) {
+                // Polling SPI
+                labelUWB.innerText = `Mesure Ancre ${anchorIdx}...`;
+                progUWB.style.transition = 'none';
+                progUWB.style.width = '0%';
+                
+                // Animation SPI (DW1000 -> Core 1)
+                animatePacket(pktSPI, p1, p2, 400, '#ef4444');
+                
+                await sleep(50);
+                progUWB.style.transition = 'width 150ms linear';
+                progUWB.style.width = '100%';
+                
+                // Temps de vol TWR UWB
+                await sleep(isDual ? 180 : 180); 
+
+                anchorIdx++;
+                if(anchorIdx > 4) {
+                    anchorIdx = 1;
+                    totalCycles++;
+                    
+                    if(isDual) {
+                        // Push to queue instantané
+                        if(queueCount < 5) queueCount++;
+                        updateQueueUI();
+                        // Délai
+                        labelUWB.innerText = `Délai (2ms)`;
+                        await sleep(100);
+                    } else {
+                        // MONOCORE : Bloqué en attendant le réseau !
+                        labelUWB.innerText = `[BLOQUÉ] Attente Wi-Fi`;
+                        document.getElementById('core1').style.borderColor = '#fbbf24';
+                        
+                        // Fait le travail du Core 0
+                        await runCore0Job();
+                        
+                        // Rétablit
+                        document.getElementById('core1').style.borderColor = '#ef4444';
+                        // Ancien Délai
+                        labelUWB.innerText = `Délai (15ms)`;
+                        await sleep(400); // 15ms + overhead ralenti
+                    }
+                }
+            }
+            labelUWB.innerText = "Attente...";
+            progUWB.style.width = '0%';
+        }
+
+        // Job réseau
+        async function runCore0Job() {
+            labelNet.innerText = `Envoi UDP...`;
+            progNet.style.transition = 'none';
+            progNet.style.width = '0%';
+            
+            await sleep(50);
+            progNet.style.transition = 'width 200ms linear';
+            progNet.style.width = '100%';
+            
+            // Animation Réseau (Core 0 -> Serveur)
+            animatePacket(pktUDP, p3, p4, 500, '#3b82f6');
+            
+            // Latence réseau
+            await sleep(250);
+            labelNet.innerText = "IDLE";
+        }
+
+        // Boucle Core 0 (Network) - Seulement en Dual-Core
+        async function runCore0() {
+            while(isRunning && isDual) {
+                if(queueCount > 0) {
+                    queueCount--;
+                    updateQueueUI();
+                    await runCore0Job();
+                } else {
+                    labelNet.innerText = "IDLE (Watchdog)";
+                    progNet.style.width = '0%';
+                    await sleep(20);
+                }
+            }
+            labelNet.innerText = "Attente...";
+            progNet.style.width = '0%';
+        }
+
+        // Calcul stats
+        function updateStats() {
+            if(!isRunning) return;
+            let elapsed = (performance.now() - startTime) / 1000;
+            let hz = totalCycles / elapsed;
+            if(elapsed > 0.5) valFreq.innerText = hz.toFixed(2);
+            requestAnimationFrame(updateStats);
+        }
+
+        btnToggle.addEventListener('click', () => {
+            if(isRunning) {
+                isRunning = false;
+                btnToggle.innerText = "Démarrer Simulation";
+                btnToggle.style.background = "#3b82f6";
+            } else {
+                isRunning = true;
+                btnToggle.innerText = "Arrêter";
+                btnToggle.style.background = "#ef4444";
+                
+                isDual = archSelect.value === 'dual';
+                
+                if(isDual) {
+                    document.getElementById('queueContainer').style.opacity = '1';
+                    document.getElementById('core0').style.opacity = '1';
+                } else {
+                    document.getElementById('queueContainer').style.opacity = '0.3';
+                    document.getElementById('core0').style.opacity = '0.3';
+                }
+
+                totalCycles = 0;
+                queueCount = 0;
+                updateQueueUI();
+                startTime = performance.now();
+                
+                runCore1();
+                if(isDual) runCore0();
+                updateStats();
+            }
+        });
+    </script>
+</body>
+</html>

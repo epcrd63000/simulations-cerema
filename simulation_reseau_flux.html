@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation Réseau : TCP vs UDP</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tailwind Configuration matching Cerema identity -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cerema: {
+                            blue: '#003B5C',     // Dark Blue Cerema
+                            cyan: '#00A3A6',     // Cyan Cerema
+                            orange: '#F29400',   // Orange Cerema
+                            darkbg: '#0B111A',   // Main background
+                            panel: '#141E2B',    // Card background
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0B111A;
+            color: #e2e8f0;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0B111A; }
+        ::-webkit-scrollbar-thumb { background: #003B5C; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00A3A6; }
+
+        /* Sliders styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer;
+            background: #1e293b; border-radius: 2px;
+        }
+        input[type=range]:focus { outline: none; }
+        
+        .slider-cyan::-webkit-slider-thumb { background: #00A3A6; box-shadow: 0 0 10px rgba(0, 163, 166, 0.5); }
+        .slider-orange::-webkit-slider-thumb { background: #F29400; box-shadow: 0 0 10px rgba(242, 148, 0, 0.5); }
+        .slider-blue::-webkit-slider-thumb { background: #3B82F6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+
+        .glass-panel {
+            background: rgba(20, 30, 43, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-6 lg:p-8">
+
+    <!-- Header -->
+    <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-cerema-blue pb-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+                <span class="text-cerema-cyan">Simulation Réseau</span> : TCP vs UDP
+            </h1>
+            <p class="text-slate-400 mt-1">Analyse comparative des protocoles de transport réseau pour la localisation temps réel 20 Hz</p>
+        </div>
+        <div class="mt-4 md:mt-0 flex gap-4">
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <span class="w-3 h-3 rounded-full bg-cerema-cyan shadow-[0_0_8px_#00A3A6]"></span> Vérité Terrain
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <span class="w-3 h-3 rounded-full bg-[#10B981] shadow-[0_0_8px_#10B981]"></span> Position Reçue Client
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Controls & Protocol comparisons -->
+        <div class="col-span-1 lg:col-span-4 flex flex-col gap-6">
+            
+            <!-- Network Settings -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg">
+                <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-cerema-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    Paramètres Réseau
+                </h2>
+                
+                <div class="space-y-6">
+                    <!-- Protocol Toggle -->
+                    <div>
+                        <label class="text-sm font-medium text-slate-300 block mb-2">Protocole Actif</label>
+                        <div class="grid grid-cols-2 gap-2 bg-cerema-darkbg p-1 rounded-lg border border-slate-800">
+                            <button id="btn-proto-udp" class="py-2 rounded-md text-sm font-bold transition-all bg-cerema-cyan text-white shadow-md">
+                                UDP (Streaming)
+                            </button>
+                            <button id="btn-proto-tcp" class="py-2 rounded-md text-sm font-medium transition-all text-slate-400 hover:text-white">
+                                TCP (Garantie)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Packet Loss rate -->
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-medium text-slate-300">Taux de perte Wi-Fi (Interférences)</label>
+                            <span id="val-loss" class="text-cerema-orange font-mono text-sm font-bold">15 %</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-2">Probabilité de perte d'un paquet de données dans l'environnement métallique.</p>
+                        <input type="range" id="slider-loss" class="slider-orange" min="0" max="50" step="5" value="15">
+                    </div>
+
+                    <!-- Sampling Frequency -->
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-medium text-slate-300">Fréquence d'Émission (Hz)</label>
+                            <span id="val-freq" class="text-cerema-cyan font-mono text-sm font-bold">20 Hz</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-2">Nombre de rafraîchissements de position envoyés par seconde.</p>
+                        <input type="range" id="slider-freq" class="slider-cyan" min="5" max="30" step="1" value="20">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Bench -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg">
+                <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-cerema-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Statistiques de Réception Client
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-cerema-darkbg p-3 rounded-lg border border-slate-800 text-center">
+                        <div class="text-[10px] text-slate-500 mb-1">Latence Instantanée</div>
+                        <div id="stat-latency" class="text-lg font-bold font-mono text-white">15 ms</div>
+                    </div>
+                    <div class="bg-cerema-darkbg p-3 rounded-lg border border-slate-800 text-center">
+                        <div class="text-[10px] text-slate-500 mb-1">Fréquence Réelle</div>
+                        <div id="stat-hz" class="text-lg font-bold font-mono text-white">20.0 Hz</div>
+                    </div>
+                    <div class="bg-cerema-darkbg p-3 rounded-lg border border-slate-800 text-center">
+                        <div class="text-[10px] text-slate-500 mb-1">Perte Effective</div>
+                        <div id="stat-loss" class="text-lg font-bold font-mono text-red-400">0.0 %</div>
+                    </div>
+                    <div class="bg-cerema-darkbg p-3 rounded-lg border border-slate-800 text-center">
+                        <div class="text-[10px] text-slate-500 mb-1">Retransmissions</div>
+                        <div id="stat-retrans" class="text-lg font-bold font-mono text-yellow-400">0</div>
+                    </div>
+                </div>
+
+                <div id="msg-block-warning" class="mt-4 p-3 bg-red-950/40 border border-red-900/60 rounded-lg text-xs text-red-400 hidden flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <div>
+                        <strong>Head-of-Line Blocking Actif !</strong> Le flux réseau est suspendu en attente du paquet perdu. La latence augmente.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Virtual Console -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg flex-1 flex flex-col min-h-[160px]">
+                <h2 class="text-sm font-semibold text-white mb-2 flex items-center justify-between">
+                    <span>Analyseur de Paquets Réseau (Wireshark)</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                </h2>
+                <div id="console-logs" class="flex-1 font-mono text-xs text-slate-400 bg-cerema-darkbg rounded-lg border border-slate-800 p-3 overflow-y-auto max-h-[180px] space-y-1">
+                    <!-- Logs inserted dynamically -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Visualizer & Explanations -->
+        <div class="col-span-1 lg:col-span-8 flex flex-col gap-6">
+            
+            <!-- Real-time Flow Map (Visual animation of packets) -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-4 shadow-lg">
+                <span class="text-xs font-semibold text-slate-400 block mb-3">Flux Réseau Animé (Tag &rarr; Routeur &rarr; Serveur &rarr; Client)</span>
+                
+                <div class="relative h-[120px] w-full rounded-lg bg-cerema-darkbg border border-slate-800 overflow-hidden">
+                    <canvas id="canvas-flow" class="absolute inset-0 w-full h-full" width="800" height="120"></canvas>
+                </div>
+            </div>
+
+            <!-- Kinematic Path Simulation (The car on the track) -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-4 shadow-lg flex-1 flex flex-col min-h-[300px]">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-xs font-semibold text-slate-400">Positionnement du Véhicule sur la Plateforme PAVIN</span>
+                    <div class="text-[10px] text-slate-500 font-mono">
+                        Vitesse Cible : 2.5 m/s (9 km/h)
+                    </div>
+                </div>
+                
+                <div class="flex-1 bg-cerema-darkbg rounded-lg border border-slate-800 overflow-hidden relative">
+                    <canvas id="canvas-track" class="w-full h-full block" width="800" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- Explanations & Theory -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg">
+                <h3 class="text-sm font-bold text-white mb-2 uppercase tracking-wide">Pourquoi préférer UDP pour le positionnement ?</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-300">
+                    <div class="space-y-2">
+                        <h4 class="font-bold text-red-400 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-red-400"></span>
+                            Le problème de TCP (Head-of-Line Blocking)
+                        </h4>
+                        <p>
+                            TCP garantit la réception sans erreur de chaque octet en utilisant un protocole d'acquittement (ACK) et de retransmission automatique (ARQ). Si le paquet de positionnement #4 est perdu :
+                        </p>
+                        <ul class="list-disc pl-4 space-y-1 text-slate-400">
+                            <li>TCP bloque le traitement de tous les paquets suivants (#5, #6, #7) qui attendent dans le tampon système.</li>
+                            <li>L'application cliente n'a aucune donnée fraîche (le véhicule se fige à l'écran).</li>
+                            <li>Dès que la retransmission du paquet #4 réussit, la file d'attente se libère d'un coup, provoquant un pic de latence et des saccades rapides de trajectoire.</li>
+                        </ul>
+                    </div>
+                    <div class="space-y-2">
+                        <h4 class="font-bold text-emerald-400 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            La solution UDP (Fraîcheur temps réel)
+                        </h4>
+                        <p>
+                            UDP fonctionne sans connexion et sans acquittement. Si le paquet #4 est perdu dans les perturbations électromagnétiques de la plateforme :
+                        </p>
+                        <ul class="list-disc pl-4 space-y-1 text-slate-400">
+                            <li>Le routeur l'ignore et transmet immédiatement le paquet #5.</li>
+                            <li>La latence reste fixe et ultra-basse car aucun blocage en tête de ligne ne se produit.</li>
+                            <li>La perte d'échantillons UWB induit seulement un infime saut de position (lissé ensuite par le filtre de Kalman), mais préserve le fonctionnement fluide en temps réel.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Application Logic Script -->
+    <script>
+        // Constants
+        const PROTOCOL_UDP = 'UDP';
+        const PROTOCOL_TCP = 'TCP';
+        
+        // Track state configuration
+        let activeProtocol = PROTOCOL_UDP;
+        let config = {
+            lossRate: 15, // in %
+            freqHz: 20,   // sample frequency
+        };
+
+        // DOM elements
+        const dom = {
+            btnUdp: document.getElementById('btn-proto-udp'),
+            btnTcp: document.getElementById('btn-proto-tcp'),
+            sliderLoss: document.getElementById('slider-loss'),
+            valLoss: document.getElementById('val-loss'),
+            sliderFreq: document.getElementById('slider-freq'),
+            valFreq: document.getElementById('val-freq'),
+            statLatency: document.getElementById('stat-latency'),
+            statHz: document.getElementById('stat-hz'),
+            statLoss: document.getElementById('stat-loss'),
+            statRetrans: document.getElementById('stat-retrans'),
+            msgWarning: document.getElementById('msg-block-warning'),
+            consoleLogs: document.getElementById('console-logs'),
+            canvasFlow: document.getElementById('canvas-flow'),
+            canvasTrack: document.getElementById('canvas-track'),
+        };
+
+        // Simulated networking state variables
+        let packetSeqNumber = 1000;
+        let packetBuffer = [];    // For visual animations
+        let networkStats = {
+            sent: 0,
+            received: 0,
+            lost: 0,
+            retransmissions: 0,
+            lastReceiveTime: Date.now(),
+            receiveIntervals: [],
+            latencyHist: []
+        };
+
+        // TCP specifics
+        let tcpState = {
+            isBlocked: false,
+            blockedQueue: [],      // holds packages during HOL blocking
+            pendingAckId: null,
+            timeoutTimer: null,
+            retransmitCount: 0
+        };
+
+        // Physical variables (vehicle along a circular track)
+        let trueCar = {
+            angle: 0,
+            speed: 0.012, // angular speed per frame
+            radius: 80,
+            centerX: 0,
+            centerY: 0
+        };
+        let clientCar = {
+            x: 0,
+            y: 0,
+            targetX: 0,
+            targetY: 0,
+            active: false
+        };
+
+        // Setup layout dimensions
+        function initLayout() {
+            trueCar.centerX = dom.canvasTrack.width / 2;
+            trueCar.centerY = dom.canvasTrack.height / 2;
+            
+            clientCar.x = trueCar.centerX + trueCar.radius;
+            clientCar.y = trueCar.centerY;
+            clientCar.targetX = clientCar.x;
+            clientCar.targetY = clientCar.y;
+        }
+
+        // Virtual Console Log Manager
+        function addLog(msg, type = 'info') {
+            const timeStr = new Date().toISOString().slice(11, 19);
+            const item = document.createElement('div');
+            let color = 'text-slate-400';
+            
+            if (type === 'tcp') color = 'text-sky-400';
+            else if (type === 'udp') color = 'text-cerema-cyan';
+            else if (type === 'lost') color = 'text-red-400';
+            else if (type === 'retrans') color = 'text-yellow-400';
+            else if (type === 'success') color = 'text-emerald-400';
+            
+            item.className = `${color} leading-5`;
+            item.innerHTML = `<span class="text-slate-600">[${timeStr}]</span> ${msg}`;
+            dom.consoleLogs.appendChild(item);
+            dom.consoleLogs.scrollTop = dom.consoleLogs.scrollHeight;
+            
+            while (dom.consoleLogs.childNodes.length > 30) {
+                dom.consoleLogs.removeChild(dom.consoleLogs.firstChild);
+            }
+        }
+
+        // --- Core Networking Simulation ---
+        
+        // Simulates sending one coordinate packet from ESP32
+        function sendPacket() {
+            packetSeqNumber++;
+            networkStats.sent++;
+            
+            // Generate raw data packet representing target coordinates
+            const posX = trueCar.centerX + trueCar.radius * Math.cos(trueCar.angle);
+            const posY = trueCar.centerY + trueCar.radius * Math.sin(trueCar.angle);
+            
+            const packet = {
+                seq: packetSeqNumber,
+                x: posX,
+                y: posY,
+                timestamp: Date.now(),
+                isRetry: false,
+                color: activeProtocol === PROTOCOL_UDP ? '#00A3A6' : '#3B82F6'
+            };
+
+            if (activeProtocol === PROTOCOL_UDP) {
+                processUdp(packet);
+            } else {
+                processTcp(packet);
+            }
+        }
+
+        // UDP Protocol flow: Fire and forget
+        function processUdp(packet) {
+            // Push packet to visualization array
+            const flowPacket = {
+                seq: packet.seq,
+                x: 100, // Node: Tag ESP32
+                y: 60,
+                destX: 250, // Router node
+                stage: 0,   // Tag -> Router
+                startTime: Date.now(),
+                duration: 250, // ms transit time per hop
+                color: packet.color,
+                originalPacket: packet
+            };
+            packetBuffer.push(flowPacket);
+            addLog(`[UDP] Envoi paquet #${packet.seq} (len=32)`, 'udp');
+        }
+
+        // TCP Protocol flow: Block if any packet fails delivery until retrans succeeds
+        function processTcp(packet) {
+            if (tcpState.isBlocked) {
+                // Buffer incoming data packets (HOL blocking)
+                tcpState.blockedQueue.push(packet);
+                addLog(`[TCP] Paquet #${packet.seq} bloqué dans le tampon de transmission local`, 'lost');
+                return;
+            }
+
+            const flowPacket = {
+                seq: packet.seq,
+                x: 100,
+                y: 60,
+                destX: 250,
+                stage: 0,
+                startTime: Date.now(),
+                duration: 250,
+                color: packet.color,
+                originalPacket: packet
+            };
+            packetBuffer.push(flowPacket);
+            addLog(`[TCP] Envoi segment #${packet.seq}`, 'tcp');
+        }
+
+        // Simulates the physical transmission through network nodes
+        function updateNetworkPackets() {
+            const now = Date.now();
+            const tagX = 80;
+            const routerX = 320;
+            const serverX = 520;
+            const clientX = 720;
+            
+            packetBuffer = packetBuffer.filter(p => {
+                const elapsed = now - p.startTime;
+                const ratio = Math.min(1.0, elapsed / p.duration);
+                
+                // Segment 0: Tag -> Router
+                if (p.stage === 0) {
+                    p.currentX = tagX + (routerX - tagX) * ratio;
+                    if (ratio >= 1.0) {
+                        // Decide packet loss at Router level
+                        const rand = Math.random() * 100;
+                        if (rand < config.lossRate) {
+                            // Loss event
+                            networkStats.lost++;
+                            addLog(`[RESEAU] Perte de trame Wi-Fi détectée pour le paquet #${p.seq} !`, 'lost');
+                            
+                            if (activeProtocol === PROTOCOL_TCP) {
+                                triggerTcpRetransmit(p.originalPacket);
+                            }
+                            return false; // drop packet
+                        } else {
+                            // Transition to Router -> Server
+                            p.stage = 1;
+                            p.x = routerX;
+                            p.destX = serverX;
+                            p.startTime = now;
+                        }
+                    }
+                }
+                // Segment 1: Router -> Server (Wired - 0% loss)
+                else if (p.stage === 1) {
+                    p.currentX = routerX + (serverX - routerX) * ratio;
+                    if (ratio >= 1.0) {
+                        p.stage = 2;
+                        p.x = serverX;
+                        p.destX = clientX;
+                        p.startTime = now;
+                    }
+                }
+                // Segment 2: Server -> Client Web (WebSockets - 0% loss)
+                else if (p.stage === 2) {
+                    p.currentX = serverX + (clientX - serverX) * ratio;
+                    if (ratio >= 1.0) {
+                        deliverToClient(p.originalPacket);
+                        return false; // complete
+                    }
+                }
+                return true;
+            });
+        }
+
+        // Deliver package to Client application
+        function deliverToClient(packet) {
+            networkStats.received++;
+            const now = Date.now();
+            
+            // Calculate latency metrics
+            const latency = now - packet.timestamp;
+            networkStats.latencyHist.push(latency);
+            if (networkStats.latencyHist.length > 50) networkStats.latencyHist.shift();
+            
+            // Track Hz reception
+            const delta = now - networkStats.lastReceiveTime;
+            networkStats.receiveIntervals.push(delta);
+            if (networkStats.receiveIntervals.length > 20) networkStats.receiveIntervals.shift();
+            networkStats.lastReceiveTime = now;
+
+            // Apply updates to UI representation
+            clientCar.targetX = packet.x;
+            clientCar.targetY = packet.y;
+            clientCar.active = true;
+
+            if (activeProtocol === PROTOCOL_UDP) {
+                addLog(`[UDP] Paquet #${packet.seq} délivré (latence: ${latency}ms)`, 'success');
+            } else {
+                addLog(`[TCP] segment #${packet.seq} acquitté et traité.`, 'success');
+                
+                // If it was the blocked packet, unblock queue
+                if (tcpState.isBlocked) {
+                    tcpState.isBlocked = false;
+                    dom.msgWarning.classList.add('hidden');
+                    
+                    // Send all accumulated blocked packets
+                    const queueSize = tcpState.blockedQueue.length;
+                    if (queueSize > 0) {
+                        addLog(`[TCP] Déblocage de la file. Envoi simultané des ${queueSize} segments en attente.`, 'retrans');
+                        const nextBatch = [...tcpState.blockedQueue];
+                        tcpState.blockedQueue = [];
+                        
+                        nextBatch.forEach((pk, idx) => {
+                            setTimeout(() => {
+                                const flowPacket = {
+                                    seq: pk.seq,
+                                    x: 80,
+                                    y: 60,
+                                    destX: 320,
+                                    stage: 0,
+                                    startTime: Date.now(),
+                                    duration: 250,
+                                    color: pk.color,
+                                    originalPacket: pk
+                                };
+                                packetBuffer.push(flowPacket);
+                            }, idx * 30);
+                        });
+                    }
+                }
+            }
+        }
+
+        // TCP ARQ Retransmission Mechanism
+        function triggerTcpRetransmit(originalPacket) {
+            if (!tcpState.isBlocked) {
+                tcpState.isBlocked = true;
+                dom.msgWarning.classList.remove('hidden');
+            }
+
+            tcpState.retransmitCount++;
+            networkStats.retransmissions++;
+            
+            // Simulate TCP timeout delay before retransmission (typically 300ms)
+            const timeoutDelay = 400;
+            addLog(`[TCP] TIMEOUT !segment #${originalPacket.seq} perdu. Planification retransmission dans ${timeoutDelay}ms...`, 'retrans');
+
+            setTimeout(() => {
+                addLog(`[TCP] Rétro-action ARQ: Ré-émission segment #${originalPacket.seq}`, 'retrans');
+                const retryPacket = { ...originalPacket, isRetry: true };
+                
+                const flowPacket = {
+                    seq: retryPacket.seq,
+                    x: 80,
+                    y: 60,
+                    destX: 320,
+                    stage: 0,
+                    startTime: Date.now(),
+                    duration: 250,
+                    color: '#eab308', // yellow indicating retry
+                    originalPacket: retryPacket
+                };
+                packetBuffer.push(flowPacket);
+            }, timeoutDelay);
+        }
+
+        // Draw network architecture schema (Canvas Node Flow)
+        function drawFlowView() {
+            const canvas = dom.canvasFlow;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const h = canvas.height;
+            const tagX = 80;
+            const routerX = 320;
+            const serverX = 520;
+            const clientX = 720;
+            const nodeY = h / 2 - 10;
+
+            // Draw connection paths
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 4;
+            
+            // Wi-Fi (dashed)
+            ctx.setLineDash([6, 6]);
+            ctx.beginPath(); ctx.moveTo(tagX, nodeY); ctx.lineTo(routerX, nodeY); ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Ethernet (solid)
+            ctx.beginPath(); ctx.moveTo(routerX, nodeY); ctx.lineTo(serverX, nodeY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(serverX, nodeY); ctx.lineTo(clientX, nodeY); ctx.stroke();
+
+            // Draw nodes
+            drawNode(ctx, tagX, nodeY, '#00A3A6', "Tag (ESP32)", "Wi-Fi (UWB)");
+            drawNode(ctx, routerX, nodeY, '#64748b', "Routeur", "Ethernet");
+            drawNode(ctx, serverX, nodeY, '#003B5C', "Serveur (PC)", "FastAPI");
+            drawNode(ctx, clientX, nodeY, '#10b981', "Client", "Dashboard");
+
+            // Draw flying packets
+            packetBuffer.forEach(p => {
+                ctx.save();
+                ctx.fillStyle = p.color;
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(p.currentX, nodeY, 6, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Packets ID label
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = '7px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(p.seq, p.currentX, nodeY - 10);
+                ctx.restore();
+            });
+        }
+
+        function drawNode(ctx, x, y, color, title, subtitle) {
+            ctx.save();
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(x, y, 16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Inner center light
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Text
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = 'bold 10px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(title, x, y + 32);
+
+            ctx.fillStyle = '#64748b';
+            ctx.font = '8px Inter, sans-serif';
+            ctx.fillText(subtitle, x, y + 43);
+            ctx.restore();
+        }
+
+        // --- Kinematic simulation map ---
+        function drawTrackView() {
+            const canvas = dom.canvasTrack;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const cx = trueCar.centerX;
+            const cy = trueCar.centerY;
+            const r = trueCar.radius;
+
+            // Draw track (Pavin extreme tunnel simulation layout)
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 15;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Draw inner/outer white markings
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(cx, cy, r - 7, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, r + 7, 0, Math.PI*2); ctx.stroke();
+
+            // 1. Draw True Target car (Cyan)
+            const trueX = cx + r * Math.cos(trueCar.angle);
+            const trueY = cy + r * Math.sin(trueCar.angle);
+            
+            ctx.save();
+            ctx.fillStyle = '#00A3A6';
+            ctx.shadowColor = '#00A3A6';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(trueX, trueY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Label for target
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 9px Inter';
+            ctx.fillText("Vraie Cible", trueX + 12, trueY - 4);
+
+            // 2. Draw Received target Client (Green)
+            if (clientCar.active) {
+                // smooth interpolation towards target (simulating display damping)
+                clientCar.x += (clientCar.targetX - clientCar.x) * 0.2;
+                clientCar.y += (clientCar.targetY - clientCar.y) * 0.2;
+
+                ctx.save();
+                ctx.fillStyle = '#10B981';
+                ctx.shadowColor = '#10B981';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(clientCar.x, clientCar.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                ctx.fillStyle = '#10B981';
+                ctx.font = 'bold 9px Inter';
+                ctx.fillText("Position Dashboard", clientCar.x + 12, clientCar.y + 12);
+            }
+        }
+
+        // Physics movement update loop
+        function updatePhysics() {
+            trueCar.angle += trueCar.speed;
+            if (trueCar.angle > Math.PI * 2) {
+                trueCar.angle -= Math.PI * 2;
+            }
+        }
+
+        // Live stats display computation
+        function updateStatsUI() {
+            // Latency computation
+            if (networkStats.latencyHist.length > 0) {
+                const avgLat = networkStats.latencyHist.reduce((a,b)=>a+b, 0) / networkStats.latencyHist.length;
+                dom.statLatency.innerText = `${Math.round(avgLat)} ms`;
+            } else {
+                dom.statLatency.innerText = "-- ms";
+            }
+
+            // Real Hz computation
+            if (networkStats.receiveIntervals.length > 0) {
+                const avgInterval = networkStats.receiveIntervals.reduce((a,b)=>a+b,0) / networkStats.receiveIntervals.length;
+                const activeHz = 1000 / avgInterval;
+                dom.statHz.innerText = `${activeHz.toFixed(1)} Hz`;
+            } else {
+                dom.statHz.innerText = "0.0 Hz";
+            }
+
+            // Real loss computation
+            const totalAttempts = networkStats.sent;
+            const lossPercent = totalAttempts > 0 ? (networkStats.lost / totalAttempts) * 100 : 0;
+            dom.statLoss.innerText = `${lossPercent.toFixed(1)} %`;
+
+            // Retransmissions
+            dom.statRetrans.innerText = networkStats.retransmissions;
+        }
+
+        // System loops manager
+        let physicsInterval = null;
+        let networkInterval = null;
+        let drawInterval = null;
+
+        function startSimulators() {
+            // physics running at 60fps
+            physicsInterval = setInterval(() => {
+                updatePhysics();
+                updateNetworkPackets();
+            }, 1000 / 60);
+
+            // Network transmission based on theoretical config frequency (Hz)
+            resetNetworkInterval();
+
+            // Graphic draw ticks
+            drawInterval = setInterval(() => {
+                drawFlowView();
+                drawTrackView();
+                updateStatsUI();
+            }, 1000 / 30);
+        }
+
+        function resetNetworkInterval() {
+            if (networkInterval) clearInterval(networkInterval);
+            const delayMs = 1000 / config.freqHz;
+            networkInterval = setInterval(sendPacket, delayMs);
+        }
+
+        // Event actions
+        dom.sliderLoss.addEventListener('input', (e) => {
+            config.lossRate = parseInt(e.target.value);
+            dom.valLoss.innerText = config.lossRate + " %";
+        });
+
+        dom.sliderFreq.addEventListener('input', (e) => {
+            config.freqHz = parseInt(e.target.value);
+            dom.valFreq.innerText = config.freqHz + " Hz";
+            resetNetworkInterval();
+        });
+
+        dom.btnUdp.addEventListener('click', () => {
+            activeProtocol = PROTOCOL_UDP;
+            dom.btnUdp.className = "py-2 rounded-md text-sm font-bold transition-all bg-cerema-cyan text-white shadow-md";
+            dom.btnTcp.className = "py-2 rounded-md text-sm font-medium transition-all text-slate-400 hover:text-white";
+            dom.msgWarning.classList.add('hidden');
+            tcpState.isBlocked = false;
+            tcpState.blockedQueue = [];
+            packetBuffer = [];
+            addLog("Commutation vers le protocole UDP (Streaming direct).", "udp");
+        });
+
+        dom.btnTcp.addEventListener('click', () => {
+            activeProtocol = PROTOCOL_TCP;
+            dom.btnTcp.className = "py-2 rounded-md text-sm font-bold transition-all bg-[#3B82F6] text-white shadow-md";
+            dom.btnUdp.className = "py-2 rounded-md text-sm font-medium transition-all text-slate-400 hover:text-white";
+            packetBuffer = [];
+            addLog("Commutation vers le protocole TCP (ARQ actif, retransmissions forcées).", "tcp");
+        });
+
+        // Initialize elements
+        initLayout();
+        addLog("Démarrage de l'analyseur réseau UWB & Protocoles.", "success");
+        addLog(`Canal WiFi actif. Fréquence initiale : ${config.freqHz} Hz. Perte paramétrée : ${config.lossRate}%.`, "info");
+        startSimulators();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation Trilatération - Impact de l'Incertitude</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tailwind Configuration matching Cerema identity -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cerema: {
+                            blue: '#003B5C',     // Dark Blue Cerema
+                            cyan: '#00A3A6',     // Cyan Cerema
+                            orange: '#F29400',   // Orange Cerema
+                            darkbg: '#0B111A',   // Main background
+                            panel: '#141E2B',    // Card background
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { 
+            background-color: #0B111A;
+            color: #e2e8f0;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0B111A; }
+        ::-webkit-scrollbar-thumb { background: #003B5C; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00A3A6; }
+
+        /* Sliders styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer;
+            background: #1e293b; border-radius: 2px;
+        }
+        input[type=range]:focus { outline: none; }
+        
+        .slider-cyan::-webkit-slider-thumb { background: #00A3A6; box-shadow: 0 0 10px rgba(0, 163, 166, 0.5); }
+        .slider-orange::-webkit-slider-thumb { background: #F29400; box-shadow: 0 0 10px rgba(242, 148, 0, 0.5); }
+
+        canvas { 
+            touch-action: none; 
+            cursor: crosshair; 
+        }
+        .glass-panel {
+            background: rgba(20, 30, 43, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .text-glow-cyan {
+            text-shadow: 0 0 10px rgba(0, 163, 166, 0.5);
+        }
+        .text-glow-orange {
+            text-shadow: 0 0 10px rgba(242, 148, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-6 lg:p-8">
+
+    <!-- Header -->
+    <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-cerema-blue pb-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+                <span class="text-cerema-cyan">Trilatération</span> 2D
+            </h1>
+            <p class="text-slate-400 mt-1">Analyse de la précision géométrique : 3 Balises vs 4 Balises avec incertitude capteur</p>
+        </div>
+        <div class="mt-4 md:mt-0 flex gap-4">
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <span class="w-3 h-3 rounded-full bg-[#10b981] shadow-[0_0_8px_#10b981]"></span> Position Réelle
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <span class="w-3 h-3 rounded-full bg-cerema-cyan shadow-[0_0_8px_#00A3A6]"></span> Balise 1-3
+            </div>
+            <div class="flex items-center gap-2 text-sm font-medium">
+                <span class="w-3 h-3 rounded-full bg-cerema-orange shadow-[0_0_8px_#F29400]"></span> Balise 4 (Redondante)
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Canvas View -->
+        <div class="col-span-1 lg:col-span-7 flex flex-col gap-4">
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-4 shadow-lg flex-1 flex flex-col justify-center items-center relative min-h-[400px]">
+                <div class="relative rounded-lg overflow-hidden bg-cerema-darkbg border border-slate-800 w-full max-w-[600px]">
+                    <canvas id="simCanvas" width="600" height="600" class="w-full h-auto block"></canvas>
+                    <div class="absolute top-4 left-4 glass-panel px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 shadow-lg">
+                        Échelle : 1 case = 1 mètre
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 text-center">
+                    👆 <strong>Glissez le point vert</strong> (position réelle) pour évaluer l'erreur géométrique (GDOP).
+                </p>
+            </div>
+        </div>
+
+        <!-- Right Column: Controls & Theory -->
+        <div class="col-span-1 lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- Stats Panel -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg">
+                <h2 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-cerema-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Résultats de l'estimation (Monte Carlo)
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="bg-cerema-darkbg p-4 rounded-xl border border-slate-800">
+                        <div class="text-[10px] text-cerema-cyan font-semibold mb-1 uppercase tracking-wider">Erreur Moyenne (3 Balises)</div>
+                        <div class="text-2xl font-bold text-white text-glow-cyan" id="rmse3">-- cm</div>
+                    </div>
+                    <div id="box4" class="bg-cerema-darkbg p-4 rounded-xl border border-slate-800 opacity-40 transition-opacity duration-300">
+                        <div class="text-[10px] text-cerema-orange font-semibold mb-1 uppercase tracking-wider">Erreur Moyenne (4 Balises)</div>
+                        <div class="text-2xl font-bold text-white text-glow-orange" id="rmse4">-- cm</div>
+                    </div>
+                </div>
+
+                <div id="improvementBox" class="hidden bg-emerald-950/40 text-emerald-400 p-3 rounded-lg border border-emerald-900/60 text-sm font-semibold flex justify-between items-center transition-all duration-300">
+                    <span>Gain de précision apporté par la 4e balise :</span>
+                    <span class="text-base font-bold text-emerald-300" id="gainPercent">-- %</span>
+                </div>
+            </div>
+
+            <!-- Parameters config -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg space-y-4">
+                <h2 class="text-base font-semibold text-white mb-2">Configuration de la simulation</h2>
+                
+                <label class="flex items-center gap-3 p-4 bg-cerema-darkbg rounded-xl border border-slate-800 cursor-pointer hover:bg-cerema-blue/20 transition-colors">
+                    <input type="checkbox" id="toggle4th" class="w-5 h-5 text-cerema-cyan rounded bg-cerema-darkbg border-slate-700 focus:ring-cerema-cyan">
+                    <span class="font-medium text-slate-300 text-sm">Activer la 4ème balise (Ancre redondante)</span>
+                </label>
+
+                <div class="p-4 bg-cerema-darkbg rounded-xl border border-slate-800">
+                    <div class="flex justify-between mb-2">
+                        <span class="font-medium text-slate-300 text-sm">Incertitude Capteur (± σ)</span>
+                        <span class="font-bold text-cerema-cyan font-mono text-sm" id="noiseValue">10 cm</span>
+                    </div>
+                    <input type="range" id="noiseSlider" min="2" max="30" value="10" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cerema-cyan slider-cyan">
+                </div>
+            </div>
+
+            <!-- Explanations and Theory -->
+            <div class="bg-cerema-panel rounded-xl border border-cerema-blue p-5 shadow-lg flex-1">
+                <h3 class="text-sm font-bold text-white mb-2">Théorie : Résilience de la 4e balise</h3>
+                <div class="text-xs text-slate-400 space-y-3 leading-relaxed">
+                    <p>
+                        Avec 3 balises, nous disposons du minimum mathématique pour définir une position 2D (intersection de cercles). Cependant, en présence de bruit matériel (incertitude de ± 10 cm), le système d'équations devient incompatible. Le moteur de calcul le résout en formulant un problème d'optimisation non linéaire par la méthode des <strong>Moindres Carrés</strong>.
+                    </p>
+                    <p>
+                        <strong>L'apport d'une 4e balise</strong> résout deux faiblesses géométriques majeures :
+                    </p>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li><strong>Bruit Statistique :</strong> Les erreurs de mesure étant indépendantes, ajouter une mesure permet de moyenner le bruit (réduction de l'incertitude proportionnelle à 1/&radic;N, soit environ <strong>13,4%</strong> d'amélioration).</li>
+                        <li><strong>Géométrie et GDOP :</strong> Si la cible se trouve en dehors du triangle formé par les 3 premières balises, l'erreur explose (dilution géométrique de la précision). La 4e balise forme un polygone fermé (un rectangle), stabilisant le GDOP et augmentant la précision locale de plus de <strong>50%</strong>.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Simulation Script Logic -->
+    <script>
+        // Simulation Canvas settings
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Scale conversion: 50 pixels represents 1 meter
+        const PIXELS_PER_METER = 50; 
+        const CM_TO_PX = PIXELS_PER_METER / 100;
+        
+        // Global variables state
+        let noiseStdDevCm = 10;
+        let use4Anchors = false;
+        
+        // Coordinates of mobile target (pixels) - initially placed at center
+        let target = { x: 300, y: 300 };
+        let isDragging = false;
+
+        // Anchor locations (pixels)
+        const anchors3 = [
+            { id: 1, x: 100, y: 100, color: '#00A3A6' }, // Top Left
+            { id: 2, x: 500, y: 100, color: '#00A3A6' }, // Top Right
+            { id: 3, x: 300, y: 500, color: '#00A3A6' }  // Bottom Center (Triangle shape)
+        ];
+        
+        // Additional redondant anchor to complete rectangular bounding shape
+        const anchor4 = { id: 4, x: 100, y: 500, color: '#F29400' }; 
+        const anchors4 = [...anchors3, anchor4];
+
+        // Box-Muller transform generator for Gaussian Noise modelling
+        function randomGaussian(mean = 0, stdev = 1) {
+            let u = 1 - Math.random();
+            let v = Math.random();
+            let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+            return z * stdev + mean;
+        }
+
+        // Distance formula between two nodes
+        function getDistance(p1, p2) {
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        /**
+         * Gauss-Newton Non-Linear Least Squares Solver for Trilateration
+         * Iteratively minimizes the residual errors of physical measured circles.
+         */
+        function solvePosition(anchors, noisyDistances, initialGuess) {
+            let est = { x: initialGuess.x, y: initialGuess.y };
+            const maxIterations = 10;
+            
+            for (let iter = 0; iter < maxIterations; iter++) {
+                // J^T * J matrix components
+                let JTJ_00 = 0, JTJ_01 = 0, JTJ_11 = 0;
+                // J^T * r vector components
+                let JTr_0 = 0, JTr_1 = 0;
+
+                for (let i = 0; i < anchors.length; i++) {
+                    const dx = est.x - anchors[i].x;
+                    const dy = est.y - anchors[i].y;
+                    let calculatedDist = Math.sqrt(dx*dx + dy*dy);
+                    
+                    if (calculatedDist < 0.001) calculatedDist = 0.001; // Avoid divide by zero
+
+                    const residual = calculatedDist - noisyDistances[i];
+                    
+                    // Jacobian matrix values (derivative of distance equation)
+                    const J_x = dx / calculatedDist;
+                    const J_y = dy / calculatedDist;
+
+                    JTJ_00 += J_x * J_x;
+                    JTJ_01 += J_x * J_y;
+                    JTJ_11 += J_y * J_y;
+
+                    JTr_0 += J_x * residual;
+                    JTr_1 += J_y * residual;
+                }
+
+                // Invert symmetric 2x2 matrix JTJ
+                const det = JTJ_00 * JTJ_11 - JTJ_01 * JTJ_01;
+                if (Math.abs(det) < 1e-6) break; // Matrix is singular, halt solving
+
+                const invJTJ_00 = JTJ_11 / det;
+                const invJTJ_01 = -JTJ_01 / det;
+                const invJTJ_11 = JTJ_00 / det;
+
+                // Shift step: Delta = (JTJ)^-1 * JTr
+                const deltaX = invJTJ_00 * JTr_0 + invJTJ_01 * JTr_1;
+                const deltaY = invJTJ_01 * JTr_0 + invJTJ_11 * JTr_1;
+
+                est.x -= deltaX;
+                est.y -= deltaY;
+
+                // Verify calculation convergence threshold
+                if (Math.abs(deltaX) < 0.05 && Math.abs(deltaY) < 0.05) break;
+            }
+            return est;
+        }
+
+        // Run Monte Carlo statistical samples to compute root mean squared error
+        function runMonteCarlo(numSamples, anchors, trueTarget, noisePx) {
+            let estimates = [];
+            let sumSquaredError = 0;
+
+            for (let s = 0; s < numSamples; s++) {
+                const noisyDistances = anchors.map(a => {
+                    const trueDist = getDistance(a, trueTarget);
+                    return trueDist + randomGaussian(0, noisePx);
+                });
+
+                // Set initial optimization guess to the geometric centroid of anchors
+                const centroid = anchors.reduce((acc, a) => ({x: acc.x + a.x, y: acc.y + a.y}), {x:0, y:0});
+                centroid.x /= anchors.length;
+                centroid.y /= anchors.length;
+
+                const est = solvePosition(anchors, noisyDistances, centroid);
+                estimates.push(est);
+
+                // Compute metric distance errors
+                const errPx = getDistance(est, trueTarget);
+                const errCm = (errPx / PIXELS_PER_METER) * 100;
+                sumSquaredError += errCm * errCm;
+            }
+
+            const rmse = Math.sqrt(sumSquaredError / numSamples);
+            return { estimates, rmse };
+        }
+
+        // Frame rendering function
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Grid ticks (1 meter spacing)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= canvas.width; i += PIXELS_PER_METER) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+
+            const noisePx = noiseStdDevCm * CM_TO_PX;
+            const NUM_SAMPLES = 400; // Monte carlo population size
+
+            // 2. Perform Monte Carlo updates
+            const res3 = runMonteCarlo(NUM_SAMPLES, anchors3, target, noisePx);
+            const res4 = runMonteCarlo(NUM_SAMPLES, anchors4, target, noisePx);
+
+            // 3. UI metric reports
+            document.getElementById('rmse3').innerText = res3.rmse.toFixed(1) + ' cm';
+            document.getElementById('rmse4').innerText = res4.rmse.toFixed(1) + ' cm';
+            
+            const gain = ((res3.rmse - res4.rmse) / res3.rmse) * 100;
+            document.getElementById('gainPercent').innerText = (gain > 0 ? '+' : '') + gain.toFixed(1) + ' %';
+
+            // 4. Render coordinate estimate clouds
+            if (!use4Anchors) {
+                // Plot 3-anchor estimates cloud (Cyan)
+                ctx.fillStyle = 'rgba(0, 163, 166, 0.12)';
+                res3.estimates.forEach(p => {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
+                });
+            } else {
+                // Plot 4-anchor estimates cloud (Orange)
+                ctx.fillStyle = 'rgba(242, 148, 0, 0.18)';
+                res4.estimates.forEach(p => {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill();
+                });
+            }
+
+            // 5. Draw mobile target truth (Green dot)
+            ctx.save();
+            ctx.fillStyle = '#10b981';
+            ctx.shadowColor = 'rgba(16, 185, 129, 0.6)';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, 8, 0, Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+            
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(target.x, target.y, 8, 0, Math.PI*2); ctx.stroke();
+
+            // 6. Draw fixed beacon anchors
+            const currentAnchors = use4Anchors ? anchors4 : anchors3;
+            currentAnchors.forEach(a => {
+                ctx.save();
+                ctx.shadowColor = a.color;
+                ctx.shadowBlur = 8;
+                ctx.fillStyle = a.color;
+                ctx.fillRect(a.x - 7, a.y - 7, 14, 14);
+                ctx.restore();
+                
+                // Border line
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(a.x - 7, a.y - 7, 14, 14);
+                
+                // Text tags
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.fillText(`A${a.id}`, a.x - 10, a.y - 12);
+                
+                // Draw dashed circle showing ranging coverage line
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.arc(a.x, a.y, getDistance(a, target), 0, Math.PI*2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            });
+        }
+
+        // --- Interaction Event Handlers ---
+        
+        function handlePointerDown(x, y) {
+            if (getDistance({x, y}, target) < 30) {
+                isDragging = true;
+                canvas.style.cursor = 'grabbing';
+            }
+        }
+
+        function handlePointerMove(x, y) {
+            if (isDragging) {
+                target.x = x;
+                target.y = y;
+                
+                // Constrain values within canvas bounds
+                target.x = Math.max(10, Math.min(canvas.width - 10, target.x));
+                target.y = Math.max(10, Math.min(canvas.height - 10, target.y));
+                
+                requestAnimationFrame(draw);
+            }
+        }
+
+        // Mouse inputs binding
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            handlePointerDown((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            handlePointerMove((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY);
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'crosshair';
+        });
+        
+        // Touch inputs binding (smartphones)
+        canvas.addEventListener('touchstart', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const touch = e.touches[0];
+            handlePointerDown((touch.clientX - rect.left) * scaleX, (touch.clientY - rect.top) * scaleY);
+            e.preventDefault();
+        }, {passive: false});
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const touch = e.touches[0];
+                handlePointerMove((touch.clientX - rect.left) * scaleX, (touch.clientY - rect.top) * scaleY);
+                e.preventDefault();
+            }
+        }, {passive: false});
+
+        window.addEventListener('touchend', () => isDragging = false);
+
+        // Control DOM element bindings
+        document.getElementById('toggle4th').addEventListener('change', (e) => {
+            use4Anchors = e.target.checked;
+            
+            const box4 = document.getElementById('box4');
+            const improvementBox = document.getElementById('improvementBox');
+            
+            if (use4Anchors) {
+                box4.classList.remove('opacity-40');
+                improvementBox.classList.remove('hidden');
+            } else {
+                box4.classList.add('opacity-40');
+                improvementBox.classList.add('hidden');
+            }
+            
+            requestAnimationFrame(draw);
+        });
+
+        document.getElementById('noiseSlider').addEventListener('input', (e) => {
+            noiseStdDevCm = parseInt(e.target.value);
+            document.getElementById('noiseValue').innerText = noiseStdDevCm + ' cm';
+            requestAnimationFrame(draw);
+        });
+
+        // Exec startup render
+        draw();
+
+    </script>
+</body>
+</html>
