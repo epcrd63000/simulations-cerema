@@ -631,14 +631,13 @@
             requestAnimationFrame(drawSpatialView);
         }
 
-        // Draw Interactive sequence chronogram
         function drawChronoView(results) {
             const canvas = dom.canvasChrono;
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const paddingLeft = 100;
-            const paddingRight = 100;
+            const paddingLeft = 160;
+            const paddingRight = 160;
             const w = canvas.width - paddingLeft - paddingRight;
             const h = canvas.height;
 
@@ -652,11 +651,12 @@
             ctx.beginPath(); ctx.moveTo(aX, 20); ctx.lineTo(aX, h - 20); ctx.stroke();
 
             // Timeline labels
+            ctx.textAlign = 'center';
             ctx.fillStyle = '#00A3A6';
             ctx.font = 'bold 12px Inter, sans-serif';
-            ctx.fillText("Tag", tX - 35, 15);
+            ctx.fillText("Tag", tX, 15);
             ctx.fillStyle = '#F29400';
-            ctx.fillText("Ancre 1", aX - 10, 15);
+            ctx.fillText("Ancre 1", aX, 15);
 
             // Time coordinates on sequence chart
             const t_poll_tx = 40;
@@ -674,6 +674,7 @@
             ctx.strokeStyle = '#00A3A6';
             ctx.shadowColor = '#00A3A6';
             drawArrow(ctx, tX, t_poll_tx, aX, t_poll_rx);
+            ctx.textAlign = 'left';
             ctx.fillStyle = '#00A3A6';
             ctx.font = 'bold 10px JetBrains Mono, monospace';
             ctx.fillText("POLL", tX + 40, t_poll_tx + 20);
@@ -702,12 +703,15 @@
             const offsetTag = config.delayTag > 0 ? ` (+${config.delayTag.toFixed(1)}ns)` : "";
             const offsetAnchor = config.delayAnchor > 0 ? ` (+${config.delayAnchor.toFixed(1)}ns)` : "";
 
-            ctx.fillText(`T_sp (TX POLL)${offsetTag}`, tX - 90, t_poll_tx + 4);
-            ctx.fillText(`T_rp (RX POLL)${offsetAnchor}`, aX + 12, t_poll_rx + 4);
-            ctx.fillText(`T_sr (TX ACK)${offsetAnchor}`, aX + 12, t_ack_tx + 4);
-            ctx.fillText(`T_rr (RX ACK)${offsetTag}`, tX - 90, t_ack_rx + 4);
-            ctx.fillText(`T_sf (TX RANGE)${offsetTag}`, tX - 90, t_range_tx + 4);
-            ctx.fillText(`T_rf (RX RANGE)${offsetAnchor}`, aX + 12, t_range_rx + 4);
+            ctx.textAlign = 'right';
+            ctx.fillText(`T_sp (TX POLL)${offsetTag}`, tX - 10, t_poll_tx + 4);
+            ctx.fillText(`T_rr (RX ACK)${offsetTag}`, tX - 10, t_ack_rx + 4);
+            ctx.fillText(`T_sf (TX RANGE)${offsetTag}`, tX - 10, t_range_tx + 4);
+
+            ctx.textAlign = 'left';
+            ctx.fillText(`T_rp (RX POLL)${offsetAnchor}`, aX + 10, t_poll_rx + 4);
+            ctx.fillText(`T_sr (TX ACK)${offsetAnchor}`, aX + 10, t_ack_tx + 4);
+            ctx.fillText(`T_rf (RX RANGE)${offsetAnchor}`, aX + 10, t_range_rx + 4);
 
             // 4. Processing delays bracket lines
             ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
@@ -722,7 +726,8 @@
             ctx.stroke();
             ctx.fillStyle = '#94a3b8';
             ctx.font = '10px Inter, sans-serif';
-            ctx.fillText(`T_reply1 = ${config.reply1} µs`, aX - 110, (t_poll_rx + t_ack_tx) / 2 + 4);
+            ctx.textAlign = 'right';
+            ctx.fillText(`T_reply1 = ${config.reply1} µs`, aX - 30, (t_poll_rx + t_ack_tx) / 2 + 4);
 
             // T_reply2 bracket (Tag)
             ctx.beginPath();
@@ -731,7 +736,8 @@
             ctx.lineTo(tX + 25, t_range_tx);
             ctx.lineTo(tX + 8, t_range_tx);
             ctx.stroke();
-            ctx.fillText(`T_reply2 = ${config.reply2} µs`, tX + 35, (t_ack_rx + t_range_tx) / 2 + 4);
+            ctx.textAlign = 'left';
+            ctx.fillText(`T_reply2 = ${config.reply2} µs`, tX + 30, (t_ack_rx + t_range_tx) / 2 + 4);
         }
 
         function drawArrow(ctx, fromX, fromY, toX, toY) {
